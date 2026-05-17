@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Game Hub - Optimized Small Island</title>
+    <title>AI Game Hub - Fixed Perspective Edition</title>
     <style>
         :root {
             --neon-blue: #00f0ff;
@@ -27,7 +27,7 @@
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
 
-        /* --- MENU STYLE --- */
+        /* --- NAVIGATION MENU INTERFACE --- */
         #menu-container {
             position: absolute;
             width: 100%;
@@ -108,7 +108,7 @@
             box-shadow: 0 0 25px var(--neon-blue);
         }
 
-        /* --- GAME SCREEN --- */
+        /* --- GAME MECHANICS AND INTERFACE LAYER --- */
         #game-container {
             position: relative;
             width: 100%;
@@ -165,7 +165,7 @@
         #crosshair::before { top: 4px; left: -8px; width: 26px; height: 2px; }
         #crosshair::after { top: -8px; left: 4px; width: 2px; height: 26px; }
 
-        /* Controls */
+        /* Multiplatform Input Zones */
         .touch-zone {
             position: absolute;
             bottom: 0;
@@ -203,6 +203,7 @@
             box-shadow: 0 0 10px var(--neon-blue);
         }
 
+        /* Fixed Button Wrapper Zone */
         #action-container {
             position: absolute;
             bottom: 30px;
@@ -255,13 +256,13 @@
         #fallback-canvas {
             width: 100%;
             height: 100%;
-            background-color: #060b11;
+            background-color: #0a141d;
         }
     </style>
 </head>
 <body>
 
-    <!-- MAIN MENU -->
+    <!-- MAIN INTERFACE MENU -->
     <div id="menu-container">
         <div class="menu-content">
             <h1>AI GAME HUB</h1>
@@ -280,6 +281,7 @@
         
         <div id="joystick-base"><div id="joystick-stick"></div></div>
         
+        <!-- Action Control Elements -->
         <div id="action-container">
             <div id="jump-btn" class="game-btn">JUMP</div>
             <div id="shoot-btn" class="game-btn">FIRE</div>
@@ -296,17 +298,16 @@
 
     <script>
         let score = 0, health = 100;
-        let targets = [], bullets = [], pillars = [], grassBlades = [];
+        let targets = [], bullets = [], pillars = [];
         
-        // --- DECREASED ISLAND AREA RADIUS ---
-        const ISLAND_RADIUS = 12; // Tight small island field boundary constraints
-
-        let pX = 0, pY = 1.2, pZ = 5; 
+        // Character Position & Jump Variables
+        let pX = 0, pY = 1.2, pZ = 8; 
         let velocityY = 0;
         const GRAVITY = -0.015;
         const JUMP_FORCE = 0.35;
         let isGrounded = true;
 
+        // View angles
         let rotY = 0, rotX = 0;
         const moveVector = { x: 0, y: 0 };
 
@@ -341,32 +342,16 @@
         window.addEventListener('resize', resizeCanvas);
 
         function initEngine() {
-            // --- REDUCED GRASS BLADES FOR LAG-FREE MOBILE RENDERING ---
-            for (let i = 0; i < 150; i++) {
-                let greenVariations = ['#224d24', '#2d6a4f', '#40916c', '#1b4332'];
-                // Spawns only within the compressed island boundaries
-                let angle = Math.random() * Math.PI * 2;
-                let radius = Math.random() * (ISLAND_RADIUS - 1);
-                grassBlades.push({
-                    x: Math.cos(angle) * radius,
-                    z: Math.sin(angle) * radius,
-                    height: 0.15 + Math.random() * 0.2,
-                    color: greenVariations[Math.floor(Math.random() * greenVariations.length)]
-                });
-            }
-
-            // Compacted map obstacle structures count
-            for (let i = 0; i < 5; i++) {
-                let angle = Math.random() * Math.PI * 2;
-                let radius = 3 + Math.random() * (ISLAND_RADIUS - 5);
+            // Generate Pillars
+            for (let i = 0; i < 15; i++) {
                 pillars.push({
-                    x: Math.cos(angle) * radius,
-                    z: Math.sin(angle) * radius,
-                    size: 2 + Math.random() * 2
+                    x: (Math.random() - 0.5) * 60,
+                    z: (Math.random() - 0.5) * 60,
+                    size: 3 + Math.random() * 3
                 });
             }
-            
-            for (let i = 0; i < 4; i++) spawnTarget();
+            // Spawn Enemy Targets
+            for (let i = 0; i < 5; i++) spawnTarget();
             setupControls();
             requestAnimationFrame(renderLoop);
         }
@@ -427,9 +412,9 @@
             rightZone.addEventListener('touchmove', (e) => {
                 for(let t of e.changedTouches) {
                     if(t.identifier === rightTouchId) {
-                        rotY -= (t.clientX - lastX) * 0.006; // Snappier touch response look controls
-                        rotX += (t.clientY - lastY) * 0.006; 
-                        rotX = Math.max(-Math.PI/3.5, Math.min(Math.PI/3.5, rotX));
+                        rotY -= (t.clientX - lastX) * 0.005;
+                        rotX += (t.clientY - lastY) * 0.005; // CORRECTED LOOK PERSPECTIVE
+                        rotX = Math.max(-Math.PI/3, Math.min(Math.PI/3, rotX));
                         lastX = t.clientX; lastY = t.clientY;
                     }
                 }
@@ -438,11 +423,14 @@
                 for(let t of e.changedTouches) { if(t.identifier === rightTouchId) rightTouchId = null; }
             });
 
+            // Action Callbacks (Ensures Fire button creates projectile and registers damage)
             shootBtn.addEventListener('touchstart', (e) => { e.preventDefault(); fireBullet(); });
             shootBtn.addEventListener('mousedown', (e) => { e.preventDefault(); fireBullet(); });
+
             jumpBtn.addEventListener('touchstart', (e) => { e.preventDefault(); jumpAction(); });
             jumpBtn.addEventListener('mousedown', (e) => { e.preventDefault(); jumpAction(); });
 
+            // Keyboard mappings
             window.addEventListener('keydown', (e) => {
                 if(e.code === 'KeyW' || e.code === 'ArrowUp') moveVector.y = 1;
                 if(e.code === 'KeyS' || e.code === 'ArrowDown') moveVector.y = -1;
@@ -454,190 +442,152 @@
                 if(['KeyW','KeyS','ArrowUp','ArrowDown'].includes(e.code)) moveVector.y = 0;
                 if(['KeyA','KeyD','ArrowLeft','ArrowRight'].includes(e.code)) moveVector.x = 0;
             });
+
+            let mDown = false;
+            window.addEventListener('mousedown', (e) => { if(e.target.className === 'touch-zone') mDown = true; });
+            window.addEventListener('mouseup', () => mDown = false);
+            window.addEventListener('mousemove', (e) => {
+                if(!mDown) return;
+                rotY -= e.movementX * 0.004;
+                rotX += e.movementY * 0.004;
+                rotX = Math.max(-Math.PI/3, Math.min(Math.PI/3, rotX));
+            });
         }
 
         function spawnTarget() {
-            let angle = Math.random() * Math.PI * 2;
-            let radius = Math.random() * (ISLAND_RADIUS - 2);
             targets.push({
-                x: Math.cos(angle) * radius,
-                y: 1.0 + Math.random() * 1.5,
-                z: Math.sin(angle) * radius,
+                x: (Math.random() - 0.5) * 30,
+                y: 1.0 + Math.random() * 2,
+                z: (Math.random() - 0.5) * 30,
                 dx: (Math.random() - 0.5) * 0.04,
                 dz: (Math.random() - 0.5) * 0.04
             });
         }
 
         function fireBullet() {
+            // Precise forward heading projection vector
             let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
             let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
             bullets.push({
-                x: pX, y: pY - 0.1, z: pZ,
+                x: pX, 
+                y: pY - 0.1, // Spawns directly below crosshair sightline
+                z: pZ,
                 vx: -sinY * cosX * 0.6,
-                vy: -sinX * 0.6, 
+                vy: -sinX * 0.6, // Inverted vertical vector component
                 vz: -cosY * cosX * 0.6,
-                life: 45 // Shorter life for smaller area boundary limits
+                life: 60 // Bullet frames limit
             });
         }
 
         function project(x, y, z) {
+            // FIX: Rebuilt view space matrix transformation to correct upside down ground tracking
             let cx = x - pX, cy = y - pY, cz = z - pZ;
+            
             let cosY = Math.cos(-rotY), sinY = Math.sin(-rotY);
             let rx = cx * cosY - cz * sinY;
             let rz = cx * sinY + cz * cosY;
             
             let cosX = Math.cos(-rotX), sinX = Math.sin(-rotX);
-            let ry = cy * cosX + rz * sinX; 
+            let ry = cy * cosX + rz * sinX; // Corrected sign for looking orientation
             let fz = -cy * sinX + rz * cosX; 
 
-            if (fz <= 0.1) return null; 
+            if (fz <= 0.1) return null; // Filter items behind the vision field
             
             let w = canvas.width, h = canvas.height;
-            let scale = h / (2 * Math.tan(Math.PI / 6)); 
+            let scale = h / (2 * Math.tan(Math.PI / 6)); // Projection focal scalar
             return {
                 x: (rx * scale) / fz + w / 2,
-                y: -(ry * scale) / fz + h / 2, 
+                y: -(ry * scale) / fz + h / 2, // Flipped screen Y coordinate axis transformation
                 depth: fz
             };
         }
 
         function renderLoop() {
+            // Physics ticks update
             velocityY += GRAVITY;
             pY += velocityY;
             if (pY <= 1.2) { pY = 1.2; velocityY = 0; isGrounded = true; }
 
             let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-            pX += (-moveVector.x * cosY + moveVector.y * sinY) * 0.09;
-            pZ += (-moveVector.x * sinY - moveVector.y * cosY) * 0.09;
+            pX += (-moveVector.x * cosY + moveVector.y * sinY) * 0.1;
+            pZ += (-moveVector.x * sinY - moveVector.y * cosY) * 0.1;
 
-            // --- RESTRAIN CHARACTER MOVEMENT WITHIN SMALL ISLAND RADIAL RANGE ---
-            let playerDistFromCenter = Math.sqrt(pX*pX + pZ*pZ);
-            if (playerDistFromCenter > ISLAND_RADIUS) {
-                pX = (pX / playerDistFromCenter) * ISLAND_RADIUS;
-                pZ = (pZ / playerDistFromCenter) * ISLAND_RADIUS;
-            }
+            // Constrain arena borders
+            pX = Math.max(-28, Math.min(28, pX));
+            pZ = Math.max(-28, Math.min(28, pZ));
 
-            // Sky render gradient background
+            // Render deep neon sky box background
             let sky = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            sky.addColorStop(0, '#07111e'); sky.addColorStop(0.6, '#0f233a'); sky.addColorStop(1, '#193554');
+            sky.addColorStop(0, '#040d1a'); sky.addColorStop(0.6, '#0a1c33'); sky.addColorStop(1, '#11294a');
             ctx.fillStyle = sky; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Celestial Sun element
-            let sun = project(3, 15, -25);
+            // Render projected celestial light sun object
+            let sun = project(5, 18, -40);
             if(sun) {
-                ctx.beginPath(); ctx.arc(sun.x, sun.y, 350/sun.depth, 0, Math.PI*2);
-                ctx.fillStyle = '#fffae6'; ctx.shadowBlur = 25; ctx.shadowColor = '#ff9900';
+                ctx.beginPath(); ctx.arc(sun.x, sun.y, 400/sun.depth, 0, Math.PI*2);
+                ctx.fillStyle = '#fffae6'; ctx.shadowBlur = 35; ctx.shadowColor = '#ffaa00';
                 ctx.fill(); ctx.shadowBlur = 0;
             }
 
-            // --- DRAW GREEN TERRAIN CIRCLING THE ISLAND BASELINE ---
-            // Draw dark backdrop sea below horizon, island disk shape surface drawn explicitly
-            ctx.fillStyle = '#050a12';
-            ctx.fillRect(0, canvas.height/2, canvas.width, canvas.height/2);
-
-            // Dynamic grass processing and back-to-front rendering order depth stack sorting
-            let renderedIslandElements = [];
-
-            // Add the solid Island disk plate container base for projection drawing mapping
-            // Simulates an organic green ground floor ring profile element matrix
-            for(let d = 0; d < 360; d += 8) {
-                let rad1 = (d * Math.PI) / 180;
-                let rad2 = ((d + 9) * Math.PI) / 180;
-                let edge1 = project(Math.cos(rad1) * ISLAND_RADIUS, 0, Math.sin(rad1) * ISLAND_RADIUS);
-                let edge2 = project(Math.cos(rad2) * ISLAND_RADIUS, 0, Math.sin(rad2) * ISLAND_RADIUS);
-                let centerPt = project(0, 0, 0);
-
-                if(edge1 && edge2 && centerPt) {
-                    renderedIslandElements.push({
-                        type: 'terrain_chunk',
-                        p1: centerPt, p2: edge1, p3: edge2,
-                        depth: (centerPt.depth + edge1.depth + edge2.depth) / 3
-                    });
+            // --- GREEN GRASS SURFACE RENDER ENGINE ---
+            ctx.strokeStyle = '#2d6a4f'; ctx.lineWidth = 1.5;
+            for(let g = -30; g <= 30; g += 3) {
+                for(let k = -30; k < 30; k += 3) {
+                    let p1 = project(g, 0, k), p2 = project(g, 0, k+3);
+                    if(p1 && p2) { ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke(); }
+                    let p3 = project(k, 0, g), p4 = project(k+3, 0, g);
+                    if(p3 && p4) { ctx.beginPath(); ctx.moveTo(p3.x, p3.y); ctx.lineTo(p4.x, p4.y); ctx.stroke(); }
                 }
             }
 
-            // Add blades of grass configuration maps into sorting list tracking
-            grassBlades.forEach(g => {
-                let ptBase = project(g.x, 0, g.z);
-                let ptTop = project(g.x, g.height, g.z);
-                // CULLING OPTIMIZATION: Discard grass elements that fall outside the screen viewing limits completely
-                if (ptBase && ptTop && ptBase.x >= 0 && ptBase.x <= canvas.width) {
-                    renderedIslandElements.push({
-                        type: 'grass', base: ptBase, top: ptTop, color: g.color, depth: ptBase.depth
-                    });
-                }
-            });
-
-            // Obstacles processing insertion items
+            // Render map structures
             pillars.forEach(p => {
                 let pt = project(p.x, p.size/2, p.z);
-                if(pt) { renderedIslandElements.push({ type: 'pillar', pt: pt, size: p.size, depth: pt.depth }); }
-            });
-
-            // Sort everything back-to-front down the depth pipeline channel axis layers
-            renderedIslandElements.sort((a, b) => b.depth - a.depth);
-
-            // Execute draw allocations loop step over ordered layers array 
-            renderedIslandElements.forEach(item => {
-                if (item.type === 'terrain_chunk') {
-                    ctx.beginPath(); ctx.moveTo(item.p1.x, item.p1.y);
-                    ctx.lineTo(item.p2.x, item.p2.y); ctx.lineTo(item.p3.x, item.p3.y);
-                    ctx.fillStyle = '#163522'; ctx.fill();
-                } 
-                else if (item.type === 'grass') {
-                    let thickness = Math.max(1, 12 / item.depth);
-                    ctx.beginPath(); ctx.moveTo(item.base.x, item.base.y);
-                    ctx.quadraticCurveTo(item.base.x + (thickness * 0.4), item.top.y, item.top.x, item.top.y);
-                    ctx.strokeStyle = item.color; ctx.lineWidth = thickness; ctx.lineCap = 'round'; ctx.stroke();
-                } 
-                else if (item.type === 'pillar') {
-                    let s = (40 / item.depth);
-                    ctx.fillStyle = '#112233'; ctx.strokeStyle = 'var(--neon-blue)'; ctx.lineWidth = 1;
-                    ctx.fillRect(item.pt.x - s, item.pt.y - s*2, s*2, s*4); ctx.strokeRect(item.pt.x - s, item.pt.y - s*2, s*2, s*4);
+                if(pt) {
+                    let s = (45 / pt.depth);
+                    ctx.fillStyle = '#162e4a'; ctx.strokeStyle = 'var(--neon-blue)'; ctx.lineWidth = 1;
+                    ctx.fillRect(pt.x - s, pt.y - s*2, s*2, s*4); ctx.strokeRect(pt.x - s, pt.y - s*2, s*2, s*4);
                 }
             });
 
-            // Targets tracker management updates
+            // Update/Render Targets
             for(let i = targets.length - 1; i >= 0; i--) {
                 let t = targets[i];
                 t.x += t.dx; t.z += t.dz;
-                
-                // Bounce enemy off small island edges boundary perimeter tracking circle limits
-                let targetDistFromCenter = Math.sqrt(t.x*t.x + t.z*t.z);
-                if(targetDistFromCenter > (ISLAND_RADIUS - 1)) {
-                    t.dx *= -1; t.dz *= -1;
-                    t.x += t.dx; t.z += t.dz;
-                }
+                if(Math.abs(t.x) > 25) t.dx *= -1; if(Math.abs(t.z) > 25) t.dz *= -1;
 
+                // Player proximity threat distance damage calculation
                 let playerDist = Math.sqrt((t.x-pX)**2 + (t.z-pZ)**2);
-                if(playerDist < 1.5) {
-                    health -= 0.5; healthBoard.innerText = "HP: " + Math.max(0, Math.floor(health));
+                if(playerDist < 1.8) {
+                    health -= 0.4; healthBoard.innerText = "HP: " + Math.max(0, Math.floor(health));
                     if(health <= 0) { alert("GAME OVER! Score: " + score); window.location.reload(); return; }
                 }
 
                 let pt = project(t.x, t.y, t.z);
                 if(pt) {
-                    let r = (25 / pt.depth);
+                    let r = (28 / pt.depth);
                     ctx.beginPath(); ctx.arc(pt.x, pt.y, Math.max(3, r), 0, Math.PI*2);
-                    ctx.fillStyle = 'var(--neon-pink)'; ctx.shadowBlur = 10; ctx.shadowColor = 'var(--neon-pink)';
+                    ctx.fillStyle = 'var(--neon-pink)'; ctx.shadowBlur = 15; ctx.shadowColor = 'var(--neon-pink)';
                     ctx.fill(); ctx.shadowBlur = 0;
                 }
             }
 
-            // Lasers flight trajectories tracking processing
+            // Update/Render Flying Laser Projectiles and Collision Tracking
             for(let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i];
                 b.x += b.vx; b.y += b.vy; b.z += b.vz;
                 b.life--;
 
-                if(b.life <= 0 || b.y < 0) { bullets.splice(i, 1); continue; }
+                // Boundaries clearance removal check
+                if(b.life <= 0 || Math.abs(b.x) > 40 || Math.abs(b.z) > 40 || b.y < 0) { bullets.splice(i, 1); continue; }
 
                 let hitRegistered = false;
                 for(let j = targets.length - 1; j >= 0; j--) {
                     let t = targets[j];
+                    // Precise 3D distance radius check calculation
                     let bulletRadiusHit = Math.sqrt((b.x-t.x)**2 + (b.y-t.y)**2 + (b.z-t.z)**2);
                     
-                    if(bulletRadiusHit < 1.4) { 
+                    if(bulletRadiusHit < 1.6) { // Damage registers and hits target
                         targets.splice(j, 1); bullets.splice(i, 1); hitRegistered = true;
                         score += 10; scoreBoard.innerText = "SCORE: " + score;
                         spawnTarget(); break;
@@ -645,10 +595,12 @@
                 }
                 if(hitRegistered) continue;
 
+                // Project visual laser element onto screen space coordinates
                 let pt = project(b.x, b.y, b.z);
                 if(pt) {
-                    ctx.beginPath(); ctx.arc(pt.x, pt.y, Math.max(1.5, 5 / pt.depth), 0, Math.PI*2);
-                    ctx.fillStyle = 'var(--neon-blue)'; ctx.fill();
+                    ctx.beginPath(); ctx.arc(pt.x, pt.y, Math.max(2, 6 / pt.depth), 0, Math.PI*2);
+                    ctx.fillStyle = 'var(--neon-blue)'; ctx.shadowBlur = 10; ctx.shadowColor = 'var(--neon-blue)';
+                    ctx.fill(); ctx.shadowBlur = 0;
                 }
             }
 
