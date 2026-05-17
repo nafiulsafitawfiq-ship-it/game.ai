@@ -1,1 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 
+<title>Nafiul Shooter 3D Multiplayer</title>
+
+<style>
+
+/* =========================
+   GLOBAL
+========================= */
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+
+body{
+  overflow:hidden;
+  background:black;
+  font-family:Arial;
+}
+
+/* =========================
+   LOADING SCREEN
+========================= */
+
+#loadingScreen{
+  position:fixed;
+  inset:0;
+
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+
+  background:black;
+  z-index:9999;
+}
+
+.loader{
+  width:120px;
+  height:120px;
+
+  border-radius:50%;
+  border:8px solid #222;
+  border-top:8px solid orange;
+
+  animation:spin 1s linear infinite;
+}
+
+.loadingText{
+  color:white;
+  margin-top:30px;
+  font-size:24px;
+  letter-spacing:5px;
+}
+
+@keyframes spin{
+  to{
+    transform:rotate(360deg);
+  }
+}
+
+/* =========================
+   MAIN MENU
+========================= */
+
+#menu{
+  position:fixed;
+  inset:0;
+
+  display:none;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+
+  background:
+  radial-gradient(circle at center,
+  #1a0b00 0%,
+  #000 70%);
+}
+
+.logo{
+  font-size:70px;
+  font-weight:900;
+
+  background:linear-gradient(
+  45deg,
+  orange,
+  red);
+
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+
+  margin-bottom:40px;
+
+  text-align:center;
+}
+
+.menuBtn{
+  width:320px;
+  padding:18px;
+
+  border:none;
+  border-radius:15px;
+
+  margin:10px;
+
+  background:
+  linear-gradient(
+  135deg,
+  #ff6600,
+  #ff2200);
+
+  color:white;
+
+  font-size:22px;
+  font-weight:bold;
+
+  cursor:pointer;
+
+  transition:0.2s;
+}
+
+.menuBtn:hover{
+  transform:scale(1.05);
+}
+
+#multiPanel{
+  display:none;
+
+  margin-top:20px;
+
+  background:rgba(255,255,255,0.05);
+
+  padding:20px;
+
+  border-radius:15px;
+
+  backdrop-filter:blur(10px);
+}
+
+#username{
+  width:250px;
+  padding:14px;
+
+  border:none;
+  outline:none;
+
+  border-radius:10px;
+
+  background:#111;
+  color:white;
+
+  margin-bottom:15px;
+}
+
+#errorText{
+  color:red;
+  margin-bottom:10px;
+}
+
+/* =========================
+   GAME UI
+========================= */
+
+#crosshair{
+  position:fixed;
+
+  left:50%;
+  top:50%;
+
+  transform:translate(-50%,-50%);
+
+  width:24px;
+  height:24px;
+
+  display:none;
+}
+
+#crosshair::before,
+#crosshair::after{
+  content:'';
+  position:absolute;
+  background:white;
+}
+
+#crosshair::before{
+  width:2px;
+  height:100%;
+  left:50%;
+}
+
+#crosshair::after{
+  height:2px;
+  width:100%;
+  top:50%;
+}
+
+#hud{
+  position:fixed;
+  top:20px;
+  left:20px;
+
+  color:white;
+
+  display:none;
+}
+
+</style>
+</head>
+
+<body>
+
+<!-- LOADING -->
+<div id="loadingScreen">
+  <div class="loader"></div>
+  <div class="loadingText">
+    LOADING...
+  </div>
+</div>
+
+<!-- MENU -->
+<div id="menu">
+
+  <div class="logo">
+    NAFIUL<br>
+    SHOOTER 3D
+  </div>
+
+  <button class="menuBtn" onclick="startSingle()">
+    SINGLEPLAYER
+  </button>
+
+  <button class="menuBtn" onclick="openMulti()">
+    MULTIPLAYER
+  </button>
+
+  <!-- MULTI PANEL -->
+  <div id="multiPanel">
+
+    <input
+      id="username"
+      maxlength="14"
+      placeholder="ENTER NAME"
+    >
+
+    <div id="errorText"></div>
+
+    <button class="menuBtn" onclick="joinServer()">
+      JOIN SERVER
+    </button>
+
+    <div style="color:white;text-align:center">
+      SERVER LIMIT: 5 PLAYERS
+    </div>
+
+  </div>
+
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div>HP: <span id="hp">100</span></div>
+  <div>KILLS: <span id="kills">0</span></div>
+</div>
+
+<div id="crosshair"></div>
+
+<!-- THREE JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<!-- SOCKET IO -->
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+
+/* =========================
+   LOADING
+========================= */
+
+setTimeout(()=>{
+  document.getElementById("loadingScreen").style.display="none";
+  document.getElementById("menu").style.display="flex";
+},2500);
+
+/* =========================
+   MENU
+========================= */
+
+function openMulti(){
+
+  document.getElementById("multiPanel")
+  .style.display="block";
+}
+
+/* =========================
+   MULTIPLAYER
+========================= */
+
+let socket;
+let players = {};
+
+function joinServer(){
+
+  const username =
+  document.getElementById("username")
+  .value
+  .trim();
+
+  if(username.length < 3){
+
+    document.getElementById("errorText")
+    .innerText = "NAME TOO SHORT";
+
+    return;
+  }
+
+  socket = io();
+
+  socket.emit("joinGame",username);
+
+  socket.on("nameTaken",()=>{
+
+    document.getElementById("errorText")
+    .innerText = "NAME ALREADY TAKEN";
+  });
+
+  socket.on("serverFull",()=>{
+
+    document.getElementById("errorText")
+    .innerText = "SERVER FULL";
+  });
+
+  socket.on("playersUpdate",(serverPlayers)=>{
+
+    players = serverPlayers;
+
+    updatePlayers();
+  });
+
+  startGame();
+}
+
+/* =========================
+   SINGLEPLAYER
+========================= */
+
+function startSingle(){
+
+  startGame();
+
+  // spawn bots here
+}
+
+/* =========================
+   THREE JS
+========================= */
+
+let scene,camera,renderer;
+
+function startGame(){
+
+  document.getElementById("menu")
+  .style.display="none";
+
+  document.getElementById("crosshair")
+  .style.display="block";
+
+  document.getElementById("hud")
+  .style.display="block";
+
+  scene = new THREE.Scene();
+
+  camera =
+  new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth/window.innerHeight,
+    0.1,
+    1000
+  );
+
+  renderer =
+  new THREE.WebGLRenderer();
+
+  renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+  );
+
+  document.body.appendChild(
+    renderer.domElement
+  );
+
+  // LIGHT
+  const light =
+  new THREE.DirectionalLight(
+    0xffffff,
+    1
+  );
+
+  light.position.set(10,20,10);
+
+  scene.add(light);
+
+  // FLOOR
+  const floor =
+  new THREE.Mesh(
+
+    new THREE.PlaneGeometry(200,200),
+
+    new THREE.MeshLambertMaterial({
+      color:0x333333
+    })
+
+  );
+
+  floor.rotation.x = -Math.PI/2;
+
+  scene.add(floor);
+
+  camera.position.y = 2;
+
+  animate();
+}
+
+/* =========================
+   PLAYERS
+========================= */
+
+function updatePlayers(){
+
+  for(let id in players){
+
+    const p = players[id];
+
+    // create player mesh
+    // update positions
+    // nametag
+  }
+}
+
+/* =========================
+   LOOP
+========================= */
+
+function animate(){
+
+  requestAnimationFrame(animate);
+
+  renderer.render(scene,camera);
+}
+
+</script>
+</body>
+  </html>
