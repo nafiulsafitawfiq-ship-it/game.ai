@@ -1,133 +1,578 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
-  <title>NafiulShooter 3D</title>
-  <link rel="stylesheet" href="style.css"/>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI Game Hub - Mobile 3D Shooter</title>
+    <!-- Three.js for 3D Graphics -->
+    <script src="https://cloudflare.com"></script>
+    <style>
+        :root {
+            --neon-blue: #00f0ff;
+            --neon-pink: #ff007f;
+            --bg-dark: #0a0a12;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-dark);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* --- MENU STYLE --- */
+        #menu-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle, #141526 0%, #05050a 100%);
+            transition: opacity 0.5s ease;
+        }
+
+        #menu-container::before {
+            content: "";
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(to right, rgba(0, 240, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 240, 255, 0.05) 1px, transparent 1px);
+            background-size: 30px 30px;
+            transform: perspective(500px) rotateX(60deg);
+            transform-origin: top;
+            animation: gridMove 20s linear infinite;
+            z-index: 1;
+            bottom: 0;
+        }
+
+        @keyframes gridMove {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 800px; }
+        }
+
+        .menu-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            width: 90%;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .btn {
+            width: 100%;
+            max-width: 280px;
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #fff;
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid var(--neon-blue);
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+        }
+
+        .btn:active {
+            background: var(--neon-blue);
+            color: #000;
+            box-shadow: 0 0 25px var(--neon-blue);
+        }
+
+        /* --- GAME UI STYLE --- */
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: none;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 15px;
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .hud-panel {
+            color: #fff;
+            font-family: monospace;
+            font-size: 1.1rem;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 8px 15px;
+            border-radius: 5px;
+            border-left: 3px solid var(--neon-blue);
+        }
+
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        #crosshair::before, #crosshair::after {
+            content: '';
+            position: absolute;
+            background: var(--neon-pink);
+        }
+        #crosshair::before { top: 4px; left: -8px; width: 26px; height: 2px; }
+        #crosshair::after { top: -8px; left: 4px; width: 2px; height: 26px; }
+
+        /* --- MOBILE TOUCH INTERFACES --- */
+        .touch-zone {
+            position: absolute;
+            bottom: 0;
+            width: 50%;
+            height: 70%;
+            pointer-events: auto;
+            z-index: 20;
+        }
+        
+        #left-touch-zone { left: 0; }
+        #right-touch-zone { right: 0; }
+
+        /* Virtual Joystick */
+        #joystick-base {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(0, 240, 255, 0.4);
+            border-radius: 50%;
+            display: none;
+            pointer-events: none;
+            z-index: 30;
+        }
+
+        #joystick-stick {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: var(--neon-blue);
+            border-radius: 50%;
+            top: 30px;
+            left: 30px;
+            box-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        /* On-Screen Shoot Button */
+        #shoot-btn {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 0, 127, 0.2);
+            border: 3px solid var(--neon-pink);
+            border-radius: 50%;
+            z-index: 30;
+            pointer-events: auto;
+            box-shadow: 0 0 15px rgba(255, 0, 127, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: bold;
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+        }
+        
+        #shoot-btn:active {
+            background: var(--neon-pink);
+            transform: scale(0.95);
+        }
+    </style>
 </head>
 <body>
 
-<!-- ══════════ MAIN MENU ══════════ -->
-<div id="mainmenu">
-  <div class="menu-bg-grid"></div>
-  <div class="menu-content">
-    <div class="game-title">
-      <span class="title-nafiul">NAFIUL</span>
-      <span class="title-shooter">SHOOTER 3D</span>
+    <!-- MAIN MENU -->
+    <div id="menu-container">
+        <div class="menu-content">
+            <h1>AI GAME HUB</h1>
+            <div class="menu-buttons">
+                <button class="btn" id="btn-single">Single Player</button>
+                <button class="btn" style="border-color:var(--neon-pink)" onclick="alert('Coming soon!')">Multiplayer</button>
+            </div>
+        </div>
     </div>
-    <div class="menu-subtitle">SELECT MODE</div>
-    <div class="mode-cards">
-      <div class="mode-card" id="btn-single" onclick="selectMode('single')">
-        <div class="mode-icon">🤖</div>
-        <div class="mode-name">SINGLE PLAYER</div>
-        <div class="mode-desc">Fight waves of AI enemies. Survive as long as you can.</div>
-        <div class="mode-tag">OFFLINE</div>
-      </div>
-      <div class="mode-card" id="btn-multi" onclick="selectMode('multi')">
-        <div class="mode-icon">🌐</div>
-        <div class="mode-name">MULTIPLAYER</div>
-        <div class="mode-desc">Fight real players. Max 5 per server. No bots.</div>
-        <div class="mode-tag multi">ONLINE</div>
-      </div>
-    </div>
-  </div>
-</div>
 
-<!-- ══════════ NAME ENTRY (Multiplayer) ══════════ -->
-<div id="namescreen" style="display:none">
-  <div class="menu-bg-grid"></div>
-  <div class="name-box">
-    <div class="name-title">ENTER YOUR NAME</div>
-    <div class="name-subtitle">Seen by all players above your character</div>
-    <div class="name-input-wrap">
-      <input id="name-input" type="text" maxlength="12" placeholder="YourName" autocomplete="off" spellcheck="false"/>
-      <div id="name-status" class="name-status"></div>
-    </div>
-    <div id="server-info" class="server-info">
-      <span id="player-count-text">Checking server…</span>
-    </div>
-    <div class="name-btns">
-      <button class="menu-btn secondary" onclick="backToMenu()">← BACK</button>
-      <button class="menu-btn primary" id="join-btn" onclick="joinMultiplayer()">JOIN GAME →</button>
-    </div>
-  </div>
-</div>
+    <!-- 3D GAME SCREEN -->
+    <div id="game-container">
+        <div id="crosshair"></div>
+        
+        <!-- Touch Input Sub-systems -->
+        <div id="left-touch-zone" class="touch-zone"></div>
+        <div id="right-touch-zone" class="touch-zone"></div>
+        
+        <div id="joystick-base">
+            <div id="joystick-stick"></div>
+        </div>
+        
+        <div id="shoot-btn">FIRE</div>
 
-<!-- ══════════ GAME OVER ══════════ -->
-<div id="gameover" style="display:none">
-  <div class="go-content">
-    <div class="go-title" id="go-title">YOU DIED</div>
-    <div class="go-stats" id="go-stats"></div>
-    <button class="menu-btn primary" onclick="restartGame()">↺ PLAY AGAIN</button>
-    <button class="menu-btn secondary" onclick="backToMenu()">⌂ MAIN MENU</button>
-  </div>
-</div>
-
-<!-- ══════════ HUD ══════════ -->
-<div id="ui" style="display:none">
-  <div id="crosshair"></div>
-  <div id="hitflash"></div>
-  <div id="shootflash"></div>
-  <div id="waveannounce"></div>
-
-  <div id="topbar">
-    <div class="hud-box">
-      <div class="hud-label">SCORE</div>
-      <div class="hud-value" id="score-v">0</div>
+        <!-- HUD Layer -->
+        <div id="ui-layer">
+            <div class="hud-top">
+                <div class="hud-panel" id="score-board">SCORE: 0</div>
+                <div class="hud-panel" id="health-board">HP: 100</div>
+            </div>
+        </div>
     </div>
-    <div class="hud-box" id="wave-box">
-      <div class="hud-label">WAVE</div>
-      <div class="hud-value" id="wave-v">1</div>
-    </div>
-    <div class="hud-box">
-      <div class="hud-label">KILLS</div>
-      <div class="hud-value" id="kills-v">0</div>
-    </div>
-    <div class="hud-box" id="players-box" style="display:none">
-      <div class="hud-label">PLAYERS</div>
-      <div class="hud-value" id="players-v">1</div>
-    </div>
-  </div>
 
-  <div id="killfeed"></div>
+    <script>
+        // --- ENGINE & GAMEPLAY STATE ---
+        let scene, camera, renderer;
+        let score = 0, health = 100;
+        let targets = [], bullets = [];
+        const TARGET_SPEED = 0.04;
+        const BULLET_SPEED = 1.5;
 
-  <div id="bottomhud">
-    <div class="hud-box">
-      <div class="hud-label">HP</div>
-      <div class="hud-value" id="hp-v">100</div>
-      <div id="health-bar"><div id="health-fill"></div></div>
-    </div>
-    <div class="hud-box">
-      <div class="hud-label">AMMO</div>
-      <div class="hud-value"><span id="ammo-v">30</span><span class="ammo-max">/30</span></div>
-    </div>
-    <div class="hud-box" id="mode-badge">
-      <div class="hud-label">MODE</div>
-      <div class="hud-value" id="mode-v" style="font-size:11px;letter-spacing:2px">SOLO</div>
-    </div>
-  </div>
+        // Player Rig & Vectors
+        let yawObject = new THREE.Object3D();
+        let pitchObject = new THREE.Object3D();
+        const moveVector = new THREE.Vector2(0, 0); // Stores joystick movements
 
-  <div id="reload-hint" style="display:none">
-    <div class="reload-bar-wrap"><div class="reload-bar" id="reload-bar"></div></div>
-    <div class="reload-text">RELOADING</div>
-  </div>
+        // --- DOM SELECTIONS ---
+        const menuContainer = document.getElementById('menu-container');
+        const gameContainer = document.getElementById('game-container');
+        const btnSingle = document.getElementById('btn-single');
+        const scoreBoard = document.getElementById('score-board');
+        const healthBoard = document.getElementById('health-board');
+        
+        // Touch Elements
+        const leftZone = document.getElementById('left-touch-zone');
+        const rightZone = document.getElementById('right-touch-zone');
+        const joyBase = document.getElementById('joystick-base');
+        const joyStick = document.getElementById('joystick-stick');
+        const shootBtn = document.getElementById('shoot-btn');
 
-  <div id="multi-scoreboard" style="display:none">
-    <div class="scoreboard-title">PLAYERS</div>
-    <div id="scoreboard-list"></div>
-  </div>
-</div>
+        // --- TRIGGER START ---
+        btnSingle.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            menuContainer.style.opacity = 0;
+            setTimeout(() => {
+                menuContainer.style.display = 'none';
+                gameContainer.style.display = 'block';
+                initGame();
+            }, 500);
+        });
 
-<!-- ══════════ MOBILE CONTROLS ══════════ -->
-<div id="joystick-zone">
-  <div id="joystick-base"><div id="joystick-thumb"></div></div>
-</div>
-<div id="fire-btn">🔫</div>
-<div id="reload-btn">R</div>
-<div id="look-zone"></div>
+        // For desktop testing compatibility
+        btnSingle.addEventListener('click', () => {
+            menuContainer.style.display = 'none';
+            gameContainer.style.display = 'block';
+            initGame();
+        });
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="game.js"></script>
+        // --- INITIALIZE 3D GRAPHICS ---
+        function initGame() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x050510);
+            scene.fog = new THREE.FogExp2(0x050510, 0.02);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            pitchObject.add(camera);
+            yawObject.add(pitchObject);
+            yawObject.position.y = 2; 
+            scene.add(yawObject);
+
+            // Lights
+            const ambient = new THREE.AmbientLight(0x404040, 2.5);
+            scene.add(ambient);
+            const directional = new THREE.DirectionalLight(0x00f0ff, 1.5);
+            directional.position.set(1, 1, 1).normalize();
+            scene.add(directional);
+
+            // Arena Mesh Floor
+            const floorGeo = new THREE.PlaneGeometry(80, 80);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x111122, roughness: 0.8 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            scene.add(floor);
+
+            const grid = new THREE.GridHelper(80, 40, 0x00f0ff, 0x222244);
+            grid.position.y = 0.01;
+            scene.add(grid);
+
+            // Random Neon Pillars
+            const pillarGeo = new THREE.BoxGeometry(2, 6, 2);
+            const pillarMat = new THREE.MeshStandardMaterial({ color: 0x1b1b3a });
+            for(let i = 0; i < 12; i++) {
+                const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+                pillar.position.set((Math.random() - 0.5) * 50, 3, (Math.random() - 0.5) * 50);
+                scene.add(pillar);
+            }
+
+            // WebGL Setup
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Dynamic mobile performance scaling
+            gameContainer.appendChild(renderer.domElement);
+
+            setupMobileControls();
+
+            // Initial Target Spawns
+            for(let i=0; i<6; i++) spawnTarget();
+
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        // --- MOBILE TOUCH CONTROLS HANDLING ---
+        function setupMobileControls() {
+            let leftTouchId = null;
+            let rightTouchId = null;
+            let touchStartX = 0, touchStartY = 0;
+            let lastLookX = 0, lastLookY = 0;
+
+            // --- LEFT ZONE: MOVEMENT JOYSTICK ---
+            leftZone.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (leftTouchId !== null) return;
+                
+                const touch = e.changedTouches[0];
+                leftTouchId = touch.identifier;
+
+                joyBase.style.display = 'block';
+                joyBase.style.left = `${touch.clientX - 50}px`;
+                joyBase.style.bottom = `${window.innerHeight - touch.clientY - 50}px`;
+                
+                touchStartX = touch.clientX;
+                touchStartY = touch.clientY;
+            });
+
+            leftZone.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                for (let touch of e.changedTouches) {
+                    if (touch.identifier === leftTouchId) {
+                        let distX = touch.clientX - touchStartX;
+                        let distY = touch.clientY - touchStartY;
+                        const maxDist = 40;
+
+                        // Constraint to circle boundaries
+                        const angle = Math.atan2(distY, distX);
+                        const distance = Math.min(maxDist, Math.sqrt(distX*distX + distY*distY));
+
+                        const moveX = Math.cos(angle) * distance;
+                        const moveY = Math.sin(angle) * distance;
+
+                        joyStick.style.transform = `translate(${moveX}px, ${moveY}px)`;
+
+                        // Normalize vector inputs for player tracking updates (inverted Y axis for movement)
+                        moveVector.x = moveX / maxDist;
+                        moveVector.y = -(moveY / maxDist);
+                    }
+                }
+            });
+
+            leftZone.addEventListener('touchend', (e) => {
+                for (let touch of e.changedTouches) {
+                    if (touch.identifier === leftTouchId) {
+                        leftTouchId = null;
+                        joyBase.style.display = 'none';
+                        joyStick.style.transform = 'translate(0px, 0px)';
+                        moveVector.set(0, 0); // Stops translation completely
+                    }
+                }
+            });
+
+            // --- RIGHT ZONE: CAMERA ROTATION LOOK ---
+            rightZone.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const touch = e.changedTouches[0];
+                if (rightTouchId !== null) return;
+                
+                rightTouchId = touch.identifier;
+                lastLookX = touch.clientX;
+                lastLookY = touch.clientY;
+            });
+
+            rightZone.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                for (let touch of e.changedTouches) {
+                    if (touch.identifier === rightTouchId) {
+                        const deltaX = touch.clientX - lastLookX;
+                        const deltaY = touch.clientY - lastLookY;
+
+                        yawObject.rotation.y -= deltaX * 0.005;
+                        pitchObject.rotation.x -= deltaY * 0.005;
+                        pitchObject.rotation.x = Math.max(-Math.PI/2.4, Math.min(Math.PI/2.4, pitchObject.rotation.x));
+
+                        lastLookX = touch.clientX;
+                        lastLookY = touch.clientY;
+                    }
+                }
+            });
+
+            rightZone.addEventListener('touchend', (e) => {
+                for (let touch of e.changedTouches) {
+                    if (touch.identifier === rightTouchId) rightTouchId = null;
+                }
+            });
+
+            // --- SEPARATED SHOOT BUTTON ---
+            shootBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                fireBullet();
+            });
+        }
+
+        // --- CORE LOGIC METHODS ---
+        function spawnTarget() {
+            const geo = new THREE.DodecahedronGeometry(0.8);
+            const mat = new THREE.MeshStandardMaterial({ color: 0xff007f, emissive: 0xff007f, emissiveIntensity: 0.4 });
+            const target = new THREE.Mesh(geo, mat);
+            
+            target.position.set((Math.random() - 0.5) * 40, 1.5 + Math.random() * 3, (Math.random() - 0.5) * 40);
+            target.userData = { dirX: (Math.random() - 0.5), dirZ: (Math.random() - 0.5) };
+
+            scene.add(target);
+            targets.push(target);
+        }
+
+        function fireBullet() {
+            const geo = new THREE.SphereGeometry(0.12, 6, 6);
+            const mat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+            const bullet = new THREE.Mesh(geo, mat);
+
+            bullet.position.copy(yawObject.position);
+            
+            const targetDir = new THREE.Vector3(0, 0, -1);
+            targetDir.applyQuaternion(camera.quaternion);
+            targetDir.applyQuaternion(yawObject.quaternion);
+            
+            bullet.userData = { velocity: targetDir.multiplyScalar(BULLET_SPEED) };
+
+            scene.add(bullet);
+            bullets.push(bullet);
+
+            setTimeout(() => {
+                scene.remove(bullet);
+                bullets = bullets.filter(b => b !== bullet);
+            }, 1500);
+        }
+
+        // --- ANIMATION STEP ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Execute Player translation updates
+            if (moveVector.x !== 0 || moveVector.y !== 0) {
+                // Direction alignments mapping
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(yawObject.quaternion);
+                const side = new THREE.Vector3(1, 0, 0).applyQuaternion(yawObject.quaternion);
+                
+                const speed = 0.15;
+                yawObject.position.addScaledVector(forward, moveVector.y * speed);
+                yawObject.position.addScaledVector(side, moveVector.x * speed);
+
+                // Wall Collisions Boundaries constraints
+                yawObject.position.x = Math.max(-38, Math.min(38, yawObject.position.x));
+                yawObject.position.z = Math.max(-38, Math.min(38, yawObject.position.z));
+            }
+
+            // Bullet trajectories tracking
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                b.position.add(b.userData.velocity);
+
+                for (let j = targets.length - 1; j >= 0; j--) {
+                    let t = targets[j];
+                    if (b.position.distanceTo(t.position) < 1.2) {
+                        scene.remove(t);
+                        scene.remove(b);
+                        targets.splice(j, 1);
+                        bullets.splice(i, 1);
+                        
+                        score += 10;
+                        scoreBoard.innerText = "SCORE: " + score;
+                        spawnTarget();
+                        break;
+                    }
+                }
+            }
+
+            // Enemy Drone movements loops
+            targets.forEach(t => {
+                t.position.x += t.userData.dirX * TARGET_SPEED;
+                t.position.z += t.userData.dirZ * TARGET_SPEED;
+                t.rotation.x += 0.01;
+                t.rotation.y += 0.02;
+
+                if(Math.abs(t.position.x) > 38) t.userData.dirX *= -1;
+                if(Math.abs(t.position.z) > 38) t.userData.dirZ *= -1;
+
+                // Player close contact damage check
+                if(t.position.distanceTo(yawObject.position) < 2.2) {
+                    health -= 0.4;
+                    healthBoard.innerText = "HP: " + Math.max(0, Math.floor(health));
+                    if(health <= 0) {
+                        alert("GAME OVER! Final Score: " + score);
+                        window.location.reload();
+                    }
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
 </body>
 </html>
