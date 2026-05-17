@@ -1,460 +1,133 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-
-<title>Nafiul Shooter 3D Multiplayer</title>
-
-<style>
-
-/* =========================
-   GLOBAL
-========================= */
-
-*{
-  margin:0;
-  padding:0;
-  box-sizing:border-box;
-}
-
-body{
-  overflow:hidden;
-  background:black;
-  font-family:Arial;
-}
-
-/* =========================
-   LOADING SCREEN
-========================= */
-
-#loadingScreen{
-  position:fixed;
-  inset:0;
-
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  align-items:center;
-
-  background:black;
-  z-index:9999;
-}
-
-.loader{
-  width:120px;
-  height:120px;
-
-  border-radius:50%;
-  border:8px solid #222;
-  border-top:8px solid orange;
-
-  animation:spin 1s linear infinite;
-}
-
-.loadingText{
-  color:white;
-  margin-top:30px;
-  font-size:24px;
-  letter-spacing:5px;
-}
-
-@keyframes spin{
-  to{
-    transform:rotate(360deg);
-  }
-}
-
-/* =========================
-   MAIN MENU
-========================= */
-
-#menu{
-  position:fixed;
-  inset:0;
-
-  display:none;
-  flex-direction:column;
-  justify-content:center;
-  align-items:center;
-
-  background:
-  radial-gradient(circle at center,
-  #1a0b00 0%,
-  #000 70%);
-}
-
-.logo{
-  font-size:70px;
-  font-weight:900;
-
-  background:linear-gradient(
-  45deg,
-  orange,
-  red);
-
-  -webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;
-
-  margin-bottom:40px;
-
-  text-align:center;
-}
-
-.menuBtn{
-  width:320px;
-  padding:18px;
-
-  border:none;
-  border-radius:15px;
-
-  margin:10px;
-
-  background:
-  linear-gradient(
-  135deg,
-  #ff6600,
-  #ff2200);
-
-  color:white;
-
-  font-size:22px;
-  font-weight:bold;
-
-  cursor:pointer;
-
-  transition:0.2s;
-}
-
-.menuBtn:hover{
-  transform:scale(1.05);
-}
-
-#multiPanel{
-  display:none;
-
-  margin-top:20px;
-
-  background:rgba(255,255,255,0.05);
-
-  padding:20px;
-
-  border-radius:15px;
-
-  backdrop-filter:blur(10px);
-}
-
-#username{
-  width:250px;
-  padding:14px;
-
-  border:none;
-  outline:none;
-
-  border-radius:10px;
-
-  background:#111;
-  color:white;
-
-  margin-bottom:15px;
-}
-
-#errorText{
-  color:red;
-  margin-bottom:10px;
-}
-
-/* =========================
-   GAME UI
-========================= */
-
-#crosshair{
-  position:fixed;
-
-  left:50%;
-  top:50%;
-
-  transform:translate(-50%,-50%);
-
-  width:24px;
-  height:24px;
-
-  display:none;
-}
-
-#crosshair::before,
-#crosshair::after{
-  content:'';
-  position:absolute;
-  background:white;
-}
-
-#crosshair::before{
-  width:2px;
-  height:100%;
-  left:50%;
-}
-
-#crosshair::after{
-  height:2px;
-  width:100%;
-  top:50%;
-}
-
-#hud{
-  position:fixed;
-  top:20px;
-  left:20px;
-
-  color:white;
-
-  display:none;
-}
-
-</style>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
+  <title>NafiulShooter 3D</title>
+  <link rel="stylesheet" href="style.css"/>
 </head>
-
 <body>
 
-<!-- LOADING -->
-<div id="loadingScreen">
-  <div class="loader"></div>
-  <div class="loadingText">
-    LOADING...
-  </div>
-</div>
-
-<!-- MENU -->
-<div id="menu">
-
-  <div class="logo">
-    NAFIUL<br>
-    SHOOTER 3D
-  </div>
-
-  <button class="menuBtn" onclick="startSingle()">
-    SINGLEPLAYER
-  </button>
-
-  <button class="menuBtn" onclick="openMulti()">
-    MULTIPLAYER
-  </button>
-
-  <!-- MULTI PANEL -->
-  <div id="multiPanel">
-
-    <input
-      id="username"
-      maxlength="14"
-      placeholder="ENTER NAME"
-    >
-
-    <div id="errorText"></div>
-
-    <button class="menuBtn" onclick="joinServer()">
-      JOIN SERVER
-    </button>
-
-    <div style="color:white;text-align:center">
-      SERVER LIMIT: 5 PLAYERS
+<!-- ══════════ MAIN MENU ══════════ -->
+<div id="mainmenu">
+  <div class="menu-bg-grid"></div>
+  <div class="menu-content">
+    <div class="game-title">
+      <span class="title-nafiul">NAFIUL</span>
+      <span class="title-shooter">SHOOTER 3D</span>
     </div>
+    <div class="menu-subtitle">SELECT MODE</div>
+    <div class="mode-cards">
+      <div class="mode-card" id="btn-single" onclick="selectMode('single')">
+        <div class="mode-icon">🤖</div>
+        <div class="mode-name">SINGLE PLAYER</div>
+        <div class="mode-desc">Fight waves of AI enemies. Survive as long as you can.</div>
+        <div class="mode-tag">OFFLINE</div>
+      </div>
+      <div class="mode-card" id="btn-multi" onclick="selectMode('multi')">
+        <div class="mode-icon">🌐</div>
+        <div class="mode-name">MULTIPLAYER</div>
+        <div class="mode-desc">Fight real players. Max 5 per server. No bots.</div>
+        <div class="mode-tag multi">ONLINE</div>
+      </div>
+    </div>
+  </div>
+</div>
 
+<!-- ══════════ NAME ENTRY (Multiplayer) ══════════ -->
+<div id="namescreen" style="display:none">
+  <div class="menu-bg-grid"></div>
+  <div class="name-box">
+    <div class="name-title">ENTER YOUR NAME</div>
+    <div class="name-subtitle">Seen by all players above your character</div>
+    <div class="name-input-wrap">
+      <input id="name-input" type="text" maxlength="12" placeholder="YourName" autocomplete="off" spellcheck="false"/>
+      <div id="name-status" class="name-status"></div>
+    </div>
+    <div id="server-info" class="server-info">
+      <span id="player-count-text">Checking server…</span>
+    </div>
+    <div class="name-btns">
+      <button class="menu-btn secondary" onclick="backToMenu()">← BACK</button>
+      <button class="menu-btn primary" id="join-btn" onclick="joinMultiplayer()">JOIN GAME →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ GAME OVER ══════════ -->
+<div id="gameover" style="display:none">
+  <div class="go-content">
+    <div class="go-title" id="go-title">YOU DIED</div>
+    <div class="go-stats" id="go-stats"></div>
+    <button class="menu-btn primary" onclick="restartGame()">↺ PLAY AGAIN</button>
+    <button class="menu-btn secondary" onclick="backToMenu()">⌂ MAIN MENU</button>
+  </div>
+</div>
+
+<!-- ══════════ HUD ══════════ -->
+<div id="ui" style="display:none">
+  <div id="crosshair"></div>
+  <div id="hitflash"></div>
+  <div id="shootflash"></div>
+  <div id="waveannounce"></div>
+
+  <div id="topbar">
+    <div class="hud-box">
+      <div class="hud-label">SCORE</div>
+      <div class="hud-value" id="score-v">0</div>
+    </div>
+    <div class="hud-box" id="wave-box">
+      <div class="hud-label">WAVE</div>
+      <div class="hud-value" id="wave-v">1</div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">KILLS</div>
+      <div class="hud-value" id="kills-v">0</div>
+    </div>
+    <div class="hud-box" id="players-box" style="display:none">
+      <div class="hud-label">PLAYERS</div>
+      <div class="hud-value" id="players-v">1</div>
+    </div>
   </div>
 
+  <div id="killfeed"></div>
+
+  <div id="bottomhud">
+    <div class="hud-box">
+      <div class="hud-label">HP</div>
+      <div class="hud-value" id="hp-v">100</div>
+      <div id="health-bar"><div id="health-fill"></div></div>
+    </div>
+    <div class="hud-box">
+      <div class="hud-label">AMMO</div>
+      <div class="hud-value"><span id="ammo-v">30</span><span class="ammo-max">/30</span></div>
+    </div>
+    <div class="hud-box" id="mode-badge">
+      <div class="hud-label">MODE</div>
+      <div class="hud-value" id="mode-v" style="font-size:11px;letter-spacing:2px">SOLO</div>
+    </div>
+  </div>
+
+  <div id="reload-hint" style="display:none">
+    <div class="reload-bar-wrap"><div class="reload-bar" id="reload-bar"></div></div>
+    <div class="reload-text">RELOADING</div>
+  </div>
+
+  <div id="multi-scoreboard" style="display:none">
+    <div class="scoreboard-title">PLAYERS</div>
+    <div id="scoreboard-list"></div>
+  </div>
 </div>
 
-<!-- HUD -->
-<div id="hud">
-  <div>HP: <span id="hp">100</span></div>
-  <div>KILLS: <span id="kills">0</span></div>
+<!-- ══════════ MOBILE CONTROLS ══════════ -->
+<div id="joystick-zone">
+  <div id="joystick-base"><div id="joystick-thumb"></div></div>
 </div>
+<div id="fire-btn">🔫</div>
+<div id="reload-btn">R</div>
+<div id="look-zone"></div>
 
-<div id="crosshair"></div>
-
-<!-- THREE JS -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
-<!-- SOCKET IO -->
-<script src="/socket.io/socket.io.js"></script>
-
-<script>
-
-/* =========================
-   LOADING
-========================= */
-
-setTimeout(()=>{
-  document.getElementById("loadingScreen").style.display="none";
-  document.getElementById("menu").style.display="flex";
-},2500);
-
-/* =========================
-   MENU
-========================= */
-
-function openMulti(){
-
-  document.getElementById("multiPanel")
-  .style.display="block";
-}
-
-/* =========================
-   MULTIPLAYER
-========================= */
-
-let socket;
-let players = {};
-
-function joinServer(){
-
-  const username =
-  document.getElementById("username")
-  .value
-  .trim();
-
-  if(username.length < 3){
-
-    document.getElementById("errorText")
-    .innerText = "NAME TOO SHORT";
-
-    return;
-  }
-
-  socket = io();
-
-  socket.emit("joinGame",username);
-
-  socket.on("nameTaken",()=>{
-
-    document.getElementById("errorText")
-    .innerText = "NAME ALREADY TAKEN";
-  });
-
-  socket.on("serverFull",()=>{
-
-    document.getElementById("errorText")
-    .innerText = "SERVER FULL";
-  });
-
-  socket.on("playersUpdate",(serverPlayers)=>{
-
-    players = serverPlayers;
-
-    updatePlayers();
-  });
-
-  startGame();
-}
-
-/* =========================
-   SINGLEPLAYER
-========================= */
-
-function startSingle(){
-
-  startGame();
-
-  // spawn bots here
-}
-
-/* =========================
-   THREE JS
-========================= */
-
-let scene,camera,renderer;
-
-function startGame(){
-
-  document.getElementById("menu")
-  .style.display="none";
-
-  document.getElementById("crosshair")
-  .style.display="block";
-
-  document.getElementById("hud")
-  .style.display="block";
-
-  scene = new THREE.Scene();
-
-  camera =
-  new THREE.PerspectiveCamera(
-    75,
-    window.innerWidth/window.innerHeight,
-    0.1,
-    1000
-  );
-
-  renderer =
-  new THREE.WebGLRenderer();
-
-  renderer.setSize(
-    window.innerWidth,
-    window.innerHeight
-  );
-
-  document.body.appendChild(
-    renderer.domElement
-  );
-
-  // LIGHT
-  const light =
-  new THREE.DirectionalLight(
-    0xffffff,
-    1
-  );
-
-  light.position.set(10,20,10);
-
-  scene.add(light);
-
-  // FLOOR
-  const floor =
-  new THREE.Mesh(
-
-    new THREE.PlaneGeometry(200,200),
-
-    new THREE.MeshLambertMaterial({
-      color:0x333333
-    })
-
-  );
-
-  floor.rotation.x = -Math.PI/2;
-
-  scene.add(floor);
-
-  camera.position.y = 2;
-
-  animate();
-}
-
-/* =========================
-   PLAYERS
-========================= */
-
-function updatePlayers(){
-
-  for(let id in players){
-
-    const p = players[id];
-
-    // create player mesh
-    // update positions
-    // nametag
-  }
-}
-
-/* =========================
-   LOOP
-========================= */
-
-function animate(){
-
-  requestAnimationFrame(animate);
-
-  renderer.render(scene,camera);
-}
-
-</script>
+<script src="game.js"></script>
 </body>
-  </html>
+</html>
