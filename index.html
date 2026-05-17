@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI Game Hub - Pure Autonomous Standalone Edition</title>
+    <title>AI Game Hub - Fixed Universal Edition</title>
     <style>
         :root {
             --neon-blue: #00f0ff;
@@ -203,17 +203,21 @@
             box-shadow: 0 0 10px var(--neon-blue);
         }
 
-        #shoot-btn {
+        /* Action Buttons Wrapper */
+        #action-container {
             position: absolute;
-            bottom: 40px;
-            right: 40px;
-            width: 80px;
-            height: 80px;
-            background: rgba(255, 0, 127, 0.2);
-            border: 3px solid var(--neon-pink);
-            border-radius: 50%;
+            bottom: 30px;
+            right: 30px;
+            display: flex;
+            gap: 20px;
             z-index: 30;
-            box-shadow: 0 0 15px rgba(255, 0, 127, 0.4);
+            pointer-events: auto;
+        }
+
+        .game-btn {
+            width: 75px;
+            height: 75px;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -222,17 +226,37 @@
             font-size: 0.9rem;
             cursor: pointer;
             touch-action: none;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+            transition: transform 0.1s;
         }
-        
+
+        #shoot-btn {
+            background: rgba(255, 0, 127, 0.3);
+            border: 3px solid var(--neon-pink);
+            box-shadow: 0 0 15px rgba(255, 0, 127, 0.4);
+        }
+
         #shoot-btn:active {
             background: var(--neon-pink);
-            transform: scale(0.95);
+            transform: scale(0.9);
+        }
+
+        #jump-btn {
+            background: rgba(0, 240, 255, 0.3);
+            border: 3px solid var(--neon-blue);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+        }
+
+        #jump-btn:active {
+            background: var(--neon-blue);
+            color: #000;
+            transform: scale(0.9);
         }
         
         #fallback-canvas {
             width: 100%;
             height: 100%;
-            background-color: #050510;
+            background-color: #0d1b2a;
         }
     </style>
 </head>
@@ -256,7 +280,12 @@
         <div id="right-touch-zone" class="touch-zone"></div>
         
         <div id="joystick-base"><div id="joystick-stick"></div></div>
-        <div id="shoot-btn">FIRE</div>
+        
+        <!-- Action Buttons Layout -->
+        <div id="action-container">
+            <div id="jump-btn" class="game-btn">JUMP</div>
+            <div id="shoot-btn" class="game-btn">FIRE</div>
+        </div>
 
         <div id="ui-layer">
             <div class="hud-top">
@@ -268,34 +297,17 @@
     </div>
 
     <script>
-        // High-speed lightweight vector and rendering pipeline embedded directly into the standalone script 
-        // to bypass any potential CDN blocking mechanisms on Vercel deployment.
-        const Mat4 = {
-            create: () => new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]),
-            perspective: (out, fovy, aspect, near, far) => {
-                let f = 1.0 / Math.tan(fovy / 2), nf = 1 / (near - far);
-                out[0] = f / aspect; out[5] = f; out[10] = (far + near) * nf;
-                out[11] = -1; out[14] = (2 * far * near) * nf; out[15] = 0;
-            },
-            identity: (out) => { out.fill(0); out[0]=out[5]=out[10]=out[15]=1; },
-            multiply: (out, a, b) => {
-                let b00 = b[0], b01 = b[1], b02 = b[2], b03 = b[3],
-                    b10 = b[4], b11 = b[5], b12 = b[6], b13 = b[7],
-                    b20 = b[8], b21 = b[9], b22 = b[10], b23 = b[11],
-                    b30 = b[12], b31 = b[13], b32 = b[14], b33 = b[15];
-                for(let i=0; i<4; i++) {
-                    let ai0=a[i], ai1=a[i+4], ai2=a[i+8], ai3=a[i+12];
-                    out[i] = ai0*b00 + ai1*b10 + ai2*b20 + ai3*b30;
-                    out[i+4] = ai0*b01 + ai1*b11 + ai2*b21 + ai3*b31;
-                    out[i+8] = ai0*b02 + ai1*b12 + ai2*b22 + ai3*b32;
-                    out[i+12] = ai0*b03 + ai1*b13 + ai2*b23 + ai3*b33;
-                }
-            }
-        };
-
         let score = 0, health = 100;
         let targets = [], bullets = [], pillars = [];
-        let pX = 0, pZ = 5, rotY = 0, rotX = 0;
+        
+        // Physics and Position variables
+        let pX = 0, pY = 1.5, pZ = 5; // Eyeline calculation baseline height
+        let velocityY = 0;
+        const GRAVITY = -0.012;
+        const JUMP_FORCE = 0.32;
+        let isGrounded = true;
+
+        let rotY = 0, rotX = 0;
         const moveVector = { x: 0, y: 0 };
 
         const menuContainer = document.getElementById('menu-container');
@@ -306,14 +318,13 @@
         const canvas = document.getElementById('fallback-canvas');
         const ctx = canvas.getContext('2d');
 
-        // Dynamic Input Accessors
         const leftZone = document.getElementById('left-touch-zone');
         const rightZone = document.getElementById('right-touch-zone');
         const joyBase = document.getElementById('joystick-base');
         const joyStick = document.getElementById('joystick-stick');
         const shootBtn = document.getElementById('shoot-btn');
+        const jumpBtn = document.getElementById('jump-btn');
 
-        // Launch Application Switcher
         const triggerStart = () => {
             menuContainer.style.display = 'none';
             gameContainer.style.display = 'block';
@@ -330,7 +341,6 @@
         window.addEventListener('resize', resizeCanvas);
 
         function initEngine() {
-            // Generate Map Geometry entities
             for (let i = 0; i < 15; i++) {
                 pillars.push({
                     x: (Math.random() - 0.5) * 60,
@@ -343,11 +353,18 @@
             requestAnimationFrame(renderLoop);
         }
 
+        // Action Core Integrators
+        function jumpAction() {
+            if (isGrounded) {
+                velocityY = JUMP_FORCE;
+                isGrounded = false;
+            }
+        }
+
         function setupControls() {
             let leftTouchId = null, rightTouchId = null;
             let startX = 0, startY = 0, lastX = 0, lastY = 0;
 
-            // --- VIRTUAL TRANSLATION HANDLERS ---
             const handleMoveStart = (id, x, y) => {
                 leftTouchId = id;
                 joyBase.style.display = 'block';
@@ -385,7 +402,6 @@
                 }
             });
 
-            // --- ORIENTATION TRACKING SYSTEMS ---
             rightZone.addEventListener('touchstart', (e) => {
                 if(rightTouchId !== null) return;
                 let t = e.changedTouches[0]; rightTouchId = t.identifier;
@@ -405,24 +421,27 @@
                 for(let t of e.changedTouches) { if(t.identifier === rightTouchId) rightTouchId = null; }
             });
 
-            // --- COMBINED ACTION COMBINATORS (MOBILE + MOUSE CLICK DETECTORS) ---
+            // Fire Action Events Bindings
             shootBtn.addEventListener('touchstart', (e) => { e.preventDefault(); fireBullet(); });
             shootBtn.addEventListener('mousedown', (e) => { e.preventDefault(); fireBullet(); });
 
-            // Keyboard Map Routing
+            // Jump Action Events Bindings
+            jumpBtn.addEventListener('touchstart', (e) => { e.preventDefault(); jumpAction(); });
+            jumpBtn.addEventListener('mousedown', (e) => { e.preventDefault(); jumpAction(); });
+
+            // Keyboard Map Routing (Includes Space for Jump)
             window.addEventListener('keydown', (e) => {
                 if(e.code === 'KeyW' || e.code === 'ArrowUp') moveVector.y = 1;
                 if(e.code === 'KeyS' || e.code === 'ArrowDown') moveVector.y = -1;
                 if(e.code === 'KeyA' || e.code === 'ArrowLeft') moveVector.x = -1;
                 if(e.code === 'KeyD' || e.code === 'ArrowRight') moveVector.x = 1;
-                if(e.code === 'Space') fireBullet();
+                if(e.code === 'Space') jumpAction();
             });
             window.addEventListener('keyup', (e) => {
                 if(['KeyW','KeyS','ArrowUp','ArrowDown'].includes(e.code)) moveVector.y = 0;
                 if(['KeyA','KeyD','ArrowLeft','ArrowRight'].includes(e.code)) moveVector.x = 0;
             });
 
-            // Drag to look desktop simulator overrides
             let mDown = false;
             window.addEventListener('mousedown', (e) => { if(e.target.className === 'touch-zone') mDown = true; });
             window.addEventListener('mouseup', () => mDown = false);
@@ -437,7 +456,7 @@
         function spawnTarget() {
             targets.push({
                 x: (Math.random() - 0.5) * 40,
-                y: 1 + Math.random() * 3,
+                y: 1.5 + Math.random() * 3,
                 z: (Math.random() - 0.5) * 40,
                 dx: (Math.random() - 0.5) * 0.05,
                 dz: (Math.random() - 0.5) * 0.05
@@ -445,20 +464,19 @@
         }
 
         function fireBullet() {
-            // Project bullet forward based on pitch/yaw matrices
             let cosX = Math.cos(rotX), sinX = Math.sin(rotX);
             let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
             bullets.push({
-                x: pX, y: 1.5, z: pZ,
+                x: pX, y: pY, z: pZ,
                 vx: -sinY * cosX * 0.8,
                 vy: sinX * 0.8,
                 vz: -cosY * cosX * 0.8
             });
         }
 
-        function project(x, y, z, pMat) {
-            // Apply coordinate transformation manually
-            let cx = x - pX, cy = y - 1.5, cz = z - pZ;
+        function project(x, y, z) {
+            // FIX: Inverted coordinate tracking matrix depth to fix map orientation
+            let cx = x - pX, cy = y - pY, cz = z - pZ;
             let cosY = Math.cos(-rotY), sinY = Math.sin(-rotY);
             let rx = cx * cosY - cz * sinY;
             let rz = cx * sinY + cz * cosY;
@@ -466,28 +484,57 @@
             let ry = cy * cosX - rz * sinX;
             let fz = cy * sinX + rz * cosX;
 
-            if (fz >= -0.1) return null; // Behind view clip 
+            // Flipped depth test logic for proper perspective alignment 
+            if (fz <= 0.1) return null; 
             let w = canvas.width, h = canvas.height;
             let fov = h / (2 * Math.tan(Math.PI / 8));
             return {
-                x: (rx * fov) / -fz + w / 2,
-                y: (ry * fov) / -fz + h / 2,
-                depth: -fz
+                x: (rx * fov) / fz + w / 2,
+                y: (ry * fov) / fz + h / 2,
+                depth: fz
             };
         }
 
         function renderLoop() {
-            // Game loop update calculations
+            // Velocity Gravity calculations step
+            velocityY += GRAVITY;
+            pY += velocityY;
+            if (pY <= 1.5) {
+                pY = 1.5;
+                velocityY = 0;
+                isGrounded = true;
+            }
+
+            // Movement coordinates translation engine
             let cosY = Math.cos(rotY), sinY = Math.sin(rotY);
-            pX += (moveVector.x * cosY - moveVector.y * sinY) * 0.12;
-            pZ += (moveVector.x * sinY + moveVector.y * cosY) * 0.12;
+            pX += (-moveVector.x * cosY + moveVector.y * sinY) * 0.12;
+            pZ += (-moveVector.x * sinY - moveVector.y * cosY) * 0.12;
 
-            ctx.fillStyle = '#050510'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Sky Background Initialization color gradient fill
+            let skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            skyGrad.addColorStop(0, '#0a192f');
+            skyGrad.addColorStop(1, '#172a45');
+            ctx.fillStyle = skyGrad; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw Wireframe Environment Ground Grid
-            ctx.strokeStyle = 'rgba(0, 240, 255, 0.15)'; ctx.lineWidth = 1;
-            for(let g = -40; g <= 40; g += 4) {
-                for(let k = -40; k < 40; k += 4) {
+            // --- ADD SUN OBJECT ELEMENT ---
+            let sunPos = project(10, 25, -60); // Placed high up in world coordinates
+            if (sunPos) {
+                let sunRadius = (450 / sunPos.depth);
+                ctx.beginPath();
+                ctx.arc(sunPos.x, sunPos.y, Math.max(10, sunRadius), 0, Math.PI * 2);
+                ctx.fillStyle = '#fffae6';
+                ctx.shadowBlur = 40;
+                ctx.shadowColor = '#ffcc00';
+                ctx.fill();
+                ctx.shadowBlur = 0; // Clear blur layer tracking
+            }
+
+            // --- GRASS GREEN RECOLOR DESIGN SURFACE ---
+            ctx.strokeStyle = 'rgba(34, 139, 34, 0.4)'; 
+            ctx.lineWidth = 1;
+            for(let g = -50; g <= 50; g += 4) {
+                for(let k = -50; k < 50; k += 4) {
                     let p1 = project(g, 0, k), p2 = project(g, 0, k+4);
                     if(p1 && p2) { ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke(); }
                     let p3 = project(k, 0, g), p4 = project(k+4, 0, g);
@@ -495,12 +542,12 @@
                 }
             }
 
-            // Draw Obstacles / Pillars
+            // Render Arena Obstacles
             pillars.forEach(p => {
                 let pt = project(p.x, p.size/2, p.z);
                 if(pt) {
                     let s = (40 / pt.depth) * (canvas.height / 500);
-                    ctx.fillStyle = '#1b1b3a'; ctx.strokeStyle = 'var(--neon-blue)'; ctx.lineWidth = 1;
+                    ctx.fillStyle = '#1b2d42'; ctx.strokeStyle = 'var(--neon-blue)'; ctx.lineWidth = 1;
                     ctx.fillRect(pt.x - s, pt.y - s*2, s*2, s*4); ctx.strokeRect(pt.x - s, pt.y - s*2, s*2, s*4);
                 }
             });
@@ -511,7 +558,6 @@
                 t.x += t.dx; t.z += t.dz;
                 if(Math.abs(t.x) > 35) t.dx *= -1; if(Math.abs(t.z) > 35) t.dz *= -1;
 
-                // Close-range tracking collision damage metrics
                 let distToPlayer = Math.sqrt((t.x-pX)*(t.x-pX) + (t.z-pZ)*(t.z-pZ));
                 if(distToPlayer < 2.0) {
                     health -= 0.3; healthBoard.innerText = "HP: " + Math.max(0, Math.floor(health));
@@ -531,8 +577,7 @@
             for(let i = bullets.length - 1; i >= 0; i--) {
                 let b = bullets[i]; b.x += b.vx; b.y += b.vy; b.z += b.vz;
 
-                // Check collisions outbounds constraints
-                if(Math.abs(b.x) > 50 || Math.abs(b.z) > 50 || b.y < 0 || b.y > 10) { bullets.splice(i, 1); continue; }
+                if(Math.abs(b.x) > 50 || Math.abs(b.z) > 50 || b.y < 0 || b.y > 20) { bullets.splice(i, 1); continue; }
 
                 let hit = false;
                 for(let j = targets.length - 1; j >= 0; j--) {
