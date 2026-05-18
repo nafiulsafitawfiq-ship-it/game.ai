@@ -2,865 +2,118 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>AI Game Hub - Fixed Perspective Edition</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>nafiul204ai</title>
+
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #000;
-    overflow: hidden;
-    font-family: 'Courier New', monospace;
-    touch-action: none;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  canvas {
-    display: block;
-    touch-action: none;
-  }
+body{
+    margin:0;
+    padding:0;
+    font-family:Arial, sans-serif;
+    background:linear-gradient(135deg,#111,#1e1e1e);
+    color:white;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+
+.container{
+    width:90%;
+    max-width:700px;
+    background:#222;
+    padding:25px;
+    border-radius:20px;
+    box-shadow:0 0 20px rgba(0,0,0,0.5);
+}
+
+h1{
+    text-align:center;
+    color:#00ffcc;
+}
+
+textarea{
+    width:100%;
+    height:120px;
+    border:none;
+    outline:none;
+    border-radius:12px;
+    padding:15px;
+    font-size:16px;
+    resize:none;
+    background:#333;
+    color:white;
+}
+
+button{
+    width:100%;
+    margin-top:15px;
+    padding:14px;
+    border:none;
+    border-radius:12px;
+    background:#00cc99;
+    color:white;
+    font-size:18px;
+    cursor:pointer;
+    transition:0.3s;
+}
+
+button:hover{
+    background:#00ffaa;
+}
+
+.output{
+    margin-top:20px;
+    background:#333;
+    padding:15px;
+    border-radius:12px;
+    min-height:120px;
+    line-height:1.7;
+}
 </style>
 </head>
+
 <body>
-<canvas id="c"></canvas>
+
+<div class="container">
+    <h1>nafiul204ai</h1>
+
+    <textarea id="userInput" placeholder="Ask something..."></textarea>
+
+    <button onclick="generateParagraph()">Generate Paragraph</button>
+
+    <div class="output" id="output">
+        Your paragraph will appear here...
+    </div>
+</div>
+
 <script>
-// ─── CANVAS SETUP ─────────────────────────────────────────────────────────────
-const canvas = document.getElementById('c');
-const ctx    = canvas.getContext('2d');
+function generateParagraph(){
 
-function resize() {
-  canvas.width  = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-window.addEventListener('resize', resize);
-resize();
+    let input = document.getElementById("userInput").value.toLowerCase();
+    let output = document.getElementById("output");
 
-// ─── CONSTANTS ────────────────────────────────────────────────────────────────
-const ARENA_W   = 2000;
-const ARENA_H   = 2000;
-const GRID      = 80;
-const STATE     = { MENU: 0, PLAYING: 1, GAMEOVER: 2 };
-
-// ─── GAME STATE ───────────────────────────────────────────────────────────────
-let gameState = STATE.MENU;
-let wave      = 1;
-let waveTimer = 0; // countdown before next wave
-let nextWave  = false;
-
-// ─── PLAYER ───────────────────────────────────────────────────────────────────
-const player = {
-  x: ARENA_W / 2, y: ARENA_H / 2,
-  vx: 0, vy: 0,
-  angle: -Math.PI / 2,
-  speed: 180,
-  size: 20,
-  hp: 100, maxHp: 100,
-  score: 0,
-  fireCd: 0, fireRate: 0.18,
-  iframes: 0,
-  dashCd: 0,
-};
-
-// ─── COLLECTIONS ──────────────────────────────────────────────────────────────
-let bullets   = [];
-let enemies   = [];
-let particles = [];
-
-// ─── CAMERA ───────────────────────────────────────────────────────────────────
-let camX = 0, camY = 0;
-
-// ─── KEYBOARD ─────────────────────────────────────────────────────────────────
-const keys = {};
-window.addEventListener('keydown', e => {
-  keys[e.key] = true;
-  if (e.key === ' ') e.preventDefault();
-  if (e.key === 'Enter' && gameState === STATE.MENU) startGame();
-  if (gameState === STATE.GAMEOVER) gameState = STATE.MENU;
-});
-window.addEventListener('keyup', e => { keys[e.key] = false; });
-
-// ─── JOYSTICK ─────────────────────────────────────────────────────────────────
-const JOY = {
-  active: false,
-  pid: -1,
-  baseX: 0, baseY: 0,
-  kx: 0, ky: 0,         // knob position
-  dx: 0, dy: 0,         // normalised -1..1
-  R: 65,                // outer radius
-  r: 28,                // knob radius
-};
-
-// ─── BUTTONS ──────────────────────────────────────────────────────────────────
-const BTN_FIRE = { active: false, pid: -1 };
-const BTN_DASH = { active: false, pid: -1 };
-
-// ─── POINTER ZONES ────────────────────────────────────────────────────────────
-// Called every frame so positions adjust with canvas size
-function getFireBtnPos() {
-  return { x: canvas.width - 90, y: canvas.height - 150, r: 52 };
-}
-function getDashBtnPos() {
-  return { x: canvas.width - 205, y: canvas.height - 95, r: 40 };
-}
-
-function dist2(ax, ay, bx, by) {
-  const dx = ax - bx, dy = ay - by;
-  return Math.sqrt(dx*dx + dy*dy);
-}
-
-// ─── POINTER EVENTS (the key fix: setPointerCapture + touch-action:none) ─────
-canvas.addEventListener('pointerdown', onDown);
-canvas.addEventListener('pointermove', onMove);
-canvas.addEventListener('pointerup',   onUp);
-canvas.addEventListener('pointercancel', onUp);
-
-function onDown(e) {
-  e.preventDefault();
-  canvas.setPointerCapture(e.pointerId); // ensures pointermove never gets lost
-
-  const x = e.clientX, y = e.clientY;
-
-  if (gameState === STATE.MENU) {
-    checkMenuClick(x, y);
-    return;
-  }
-  if (gameState === STATE.GAMEOVER) {
-    gameState = STATE.MENU;
-    return;
-  }
-
-  // ── FIRE button ──
-  const f = getFireBtnPos();
-  if (dist2(x, y, f.x, f.y) < f.r + 10 && !BTN_FIRE.active) {
-    BTN_FIRE.active = true;
-    BTN_FIRE.pid    = e.pointerId;
-    return;
-  }
-
-  // ── DASH button ──
-  const d = getDashBtnPos();
-  if (dist2(x, y, d.x, d.y) < d.r + 10 && !BTN_DASH.active) {
-    BTN_DASH.active = true;
-    BTN_DASH.pid    = e.pointerId;
-    doDash();
-    return;
-  }
-
-  // ── JOYSTICK (left half) ──
-  if (x < canvas.width * 0.5 && !JOY.active) {
-    JOY.active = true;
-    JOY.pid    = e.pointerId;
-    JOY.baseX  = x;
-    JOY.baseY  = y;
-    JOY.kx     = x;
-    JOY.ky     = y;
-    JOY.dx     = 0;
-    JOY.dy     = 0;
-  }
-}
-
-function onMove(e) {
-  e.preventDefault();
-  if (JOY.active && e.pointerId === JOY.pid) {
-    let dx = e.clientX - JOY.baseX;
-    let dy = e.clientY - JOY.baseY;
-    const d = Math.sqrt(dx*dx + dy*dy);
-    if (d > JOY.R) { dx = dx/d*JOY.R; dy = dy/d*JOY.R; }
-    JOY.kx = JOY.baseX + dx;
-    JOY.ky = JOY.baseY + dy;
-    JOY.dx = dx / JOY.R;
-    JOY.dy = dy / JOY.R;
-  }
-}
-
-function onUp(e) {
-  e.preventDefault();
-  if (JOY.active && e.pointerId === JOY.pid) {
-    JOY.active = false; JOY.pid = -1;
-    JOY.dx = 0; JOY.dy = 0;
-  }
-  if (BTN_FIRE.active && e.pointerId === BTN_FIRE.pid) {
-    BTN_FIRE.active = false; BTN_FIRE.pid = -1;
-  }
-  if (BTN_DASH.active && e.pointerId === BTN_DASH.pid) {
-    BTN_DASH.active = false; BTN_DASH.pid = -1;
-  }
-}
-
-// ─── MENU CLICK ───────────────────────────────────────────────────────────────
-let menuBtnSP = null;
-
-function checkMenuClick(x, y) {
-  if (!menuBtnSP) return;
-  const { bx, by, bw, bh } = menuBtnSP;
-  if (x >= bx && x <= bx+bw && y >= by && y <= by+bh) startGame();
-}
-
-// ─── GAME INIT ────────────────────────────────────────────────────────────────
-function startGame() {
-  gameState      = STATE.PLAYING;
-  player.x       = ARENA_W / 2;
-  player.y       = ARENA_H / 2;
-  player.vx      = 0;
-  player.vy      = 0;
-  player.hp      = player.maxHp;
-  player.score   = 0;
-  player.fireCd  = 0;
-  player.iframes = 0;
-  player.dashCd  = 0;
-  player.angle   = -Math.PI / 2;
-  bullets        = [];
-  enemies        = [];
-  particles      = [];
-  wave           = 1;
-  waveTimer      = 0;
-  nextWave       = false;
-  spawnWave();
-}
-
-// ─── WAVE SPAWNING ────────────────────────────────────────────────────────────
-function spawnWave() {
-  nextWave = false;
-  const count = 4 + wave * 2;
-  for (let i = 0; i < count; i++) {
-    const side = (Math.random() * 4) | 0;
-    let ex, ey;
-    if (side === 0) { ex = Math.random()*ARENA_W; ey = -40; }
-    else if (side === 1) { ex = ARENA_W+40; ey = Math.random()*ARENA_H; }
-    else if (side === 2) { ex = Math.random()*ARENA_W; ey = ARENA_H+40; }
-    else              { ex = -40; ey = Math.random()*ARENA_H; }
-
-    const type   = wave >= 3 && Math.random() < 0.25 ? 'shooter' : 'chaser';
-    const hpMax  = 1 + Math.floor(wave / 4);
-    enemies.push({
-      x: ex, y: ey, vx: 0, vy: 0,
-      angle: 0,
-      speed: 55 + wave * 8 + Math.random() * 25,
-      size: type === 'shooter' ? 16 : 18,
-      hp: hpMax, maxHp: hpMax,
-      type,
-      fireCd: 1.5 + Math.random() * 1.5,
-    });
-  }
-}
-
-// ─── SHOOTING ─────────────────────────────────────────────────────────────────
-function playerShoot() {
-  const spd = 420;
-  const ang = player.angle;
-  bullets.push({
-    x: player.x + Math.cos(ang) * (player.size + 4),
-    y: player.y + Math.sin(ang) * (player.size + 4),
-    vx: Math.cos(ang) * spd,
-    vy: Math.sin(ang) * spd,
-    owner: 'player',
-    size: 6, life: 1.4,
-    color: '#00ffff',
-  });
-}
-
-function enemyShoot(e) {
-  const spd = 200;
-  const ang = e.angle;
-  bullets.push({
-    x: e.x + Math.cos(ang) * (e.size + 4),
-    y: e.y + Math.sin(ang) * (e.size + 4),
-    vx: Math.cos(ang) * spd,
-    vy: Math.sin(ang) * spd,
-    owner: 'enemy',
-    size: 5, life: 3,
-    color: '#ff44ff',
-  });
-}
-
-// ─── DASH ─────────────────────────────────────────────────────────────────────
-function doDash() {
-  if (player.dashCd > 0) return;
-  player.x += Math.cos(player.angle) * 80;
-  player.y += Math.sin(player.angle) * 80;
-  player.iframes = 0.35;
-  player.dashCd  = 1.2;
-  spawnParticles(player.x, player.y, '#00aaff', 10, 60, 180);
-}
-
-// ─── PARTICLES ────────────────────────────────────────────────────────────────
-function spawnParticles(x, y, color, n, sMin, sMax) {
-  for (let i = 0; i < n; i++) {
-    const ang = Math.random() * Math.PI * 2;
-    const spd = sMin + Math.random() * (sMax - sMin);
-    const lt  = 0.3 + Math.random() * 0.5;
-    particles.push({ x, y, vx: Math.cos(ang)*spd, vy: Math.sin(ang)*spd,
-      color, life: lt, maxLife: lt, size: 2 + Math.random()*5 });
-  }
-}
-
-// ─── UPDATE ───────────────────────────────────────────────────────────────────
-let lastT = 0;
-
-function update(ts) {
-  requestAnimationFrame(update);
-  const dt = Math.min((ts - lastT) / 1000, 0.05);
-  lastT = ts;
-
-  if (gameState !== STATE.PLAYING) { draw(); return; }
-
-  // ── Player input ──
-  let mx = JOY.dx, my = JOY.dy;
-  if (keys['ArrowLeft'] || keys['a'] || keys['A']) mx -= 1;
-  if (keys['ArrowRight']|| keys['d'] || keys['D']) mx += 1;
-  if (keys['ArrowUp']   || keys['w'] || keys['W']) my -= 1;
-  if (keys['ArrowDown'] || keys['s'] || keys['S']) my += 1;
-  const mLen = Math.sqrt(mx*mx + my*my);
-  if (mLen > 1) { mx /= mLen; my /= mLen; }
-  if (mLen > 0.1) player.angle = Math.atan2(my, mx);
-
-  player.x += mx * player.speed * dt;
-  player.y += my * player.speed * dt;
-  player.x  = Math.max(player.size, Math.min(ARENA_W - player.size, player.x));
-  player.y  = Math.max(player.size, Math.min(ARENA_H - player.size, player.y));
-
-  // ── Fire ──
-  player.fireCd -= dt;
-  const wantFire = BTN_FIRE.active || keys[' '] || keys['z'] || keys['Z'] || keys['x'] || keys['X'];
-  if (wantFire && player.fireCd <= 0) {
-    playerShoot();
-    player.fireCd = player.fireRate;
-  }
-
-  // ── Cooldowns ──
-  if (player.iframes > 0) player.iframes -= dt;
-  if (player.dashCd  > 0) player.dashCd  -= dt;
-
-  // ── Keyboard dash ──
-  if ((keys['Shift'] || keys['q'] || keys['Q']) && player.dashCd <= 0) {
-    doDash();
-  }
-
-  // ── Bullets ──
-  for (const b of bullets) {
-    b.x += b.vx * dt;
-    b.y += b.vy * dt;
-    b.life -= dt;
-    if (b.x < -20 || b.x > ARENA_W+20 || b.y < -20 || b.y > ARENA_H+20) b.life = 0;
-  }
-
-  // ── Enemies ──
-  for (const e of enemies) {
-    const ex = player.x - e.x, ey = player.y - e.y;
-    const ed = Math.sqrt(ex*ex + ey*ey) || 1;
-    e.angle = Math.atan2(ey, ex);
-
-    // Shooters keep distance; chasers close in
-    if (e.type === 'shooter') {
-      const desired = 220;
-      const factor  = ed > desired ? 1 : ed < desired - 40 ? -0.5 : 0;
-      e.vx = (ex/ed) * e.speed * factor;
-      e.vy = (ey/ed) * e.speed * factor;
-    } else {
-      e.vx = (ex/ed) * e.speed;
-      e.vy = (ey/ed) * e.speed;
-    }
-    e.x += e.vx * dt;
-    e.y += e.vy * dt;
-
-    // Shooter fires
-    if (e.type === 'shooter') {
-      e.fireCd -= dt;
-      if (e.fireCd <= 0) { enemyShoot(e); e.fireCd = 1.8; }
+    if(input.includes("tea stall")){
+        output.innerHTML =
+        "A tea stall is a small and popular place where people gather to drink tea and spend time with friends. It is usually found near roads, markets, schools, or bus stations. A tea stall owner prepares fresh tea using milk, sugar, and tea leaves. Many people visit tea stalls every day for relaxation and conversation. It plays an important role in daily social life and is a common sight in many villages and towns.";
     }
 
-    // Enemy vs player contact
-    if (player.iframes <= 0 && dist2(e.x, e.y, player.x, player.y) < e.size + player.size) {
-      player.hp -= 15;
-      player.iframes = 0.9;
-      spawnParticles(player.x, player.y, '#ff3333', 12, 40, 120);
-      if (player.hp <= 0) { player.hp = 0; gameState = STATE.GAMEOVER; }
+    else if(input.includes("school")){
+        output.innerHTML =
+        "A school is an educational institution where students learn different subjects and develop knowledge and skills. Teachers guide students in their studies and help them become responsible citizens. Schools also teach discipline, honesty, and teamwork. Students participate in sports, cultural programs, and various activities that help build confidence and creativity.";
     }
-  }
 
-  // ── Collision: player bullets → enemies ──
-  for (const b of bullets) {
-    if (b.owner !== 'player' || b.life <= 0) continue;
-    for (const e of enemies) {
-      if (e.hp <= 0) continue;
-      if (dist2(b.x, b.y, e.x, e.y) < b.size + e.size) {
-        b.life = 0;
-        e.hp--;
-        spawnParticles(e.x, e.y, '#ff8800', 6, 30, 100);
-        if (e.hp <= 0) {
-          spawnParticles(e.x, e.y, e.type==='shooter' ? '#ff00ff' : '#ff5500', 18, 60, 220);
-          player.score += 10 * wave;
-        }
-        break;
-      }
+    else if(input.includes("computer")){
+        output.innerHTML =
+        "A computer is an electronic device that helps people perform many tasks quickly and accurately. It is used for studying, communication, entertainment, and office work. Computers can store large amounts of information and process data efficiently. In modern life, computers play a very important role in education, business, and technology.";
     }
-  }
 
-  // ── Collision: enemy bullets → player ──
-  for (const b of bullets) {
-    if (b.owner !== 'enemy' || b.life <= 0) continue;
-    if (player.iframes <= 0 && dist2(b.x, b.y, player.x, player.y) < b.size + player.size) {
-      b.life = 0;
-      player.hp -= 8;
-      player.iframes = 0.4;
-      spawnParticles(player.x, player.y, '#ff3333', 8, 30, 80);
-      if (player.hp <= 0) { player.hp = 0; gameState = STATE.GAMEOVER; }
+    else{
+        output.innerHTML =
+        "This is a well-written paragraph generated by nafiul204ai. The topic you entered is important and useful in daily life. It helps people gain knowledge and understand different aspects of education, society, and technology. A good paragraph should contain clear ideas, proper sentences, and meaningful information presented in an organized way.";
     }
-  }
-
-  // ── Cleanup ──
-  bullets = bullets.filter(b => b.life > 0);
-  enemies = enemies.filter(e => e.hp > 0);
-  for (const p of particles) {
-    p.x += p.vx * dt; p.y += p.vy * dt;
-    p.vx *= 0.9;       p.vy *= 0.9;
-    p.life -= dt;
-  }
-  particles = particles.filter(p => p.life > 0);
-
-  // ── Wave logic ──
-  if (enemies.length === 0) {
-    if (!nextWave) { nextWave = true; waveTimer = 3; }
-    waveTimer -= dt;
-    if (waveTimer <= 0) { wave++; spawnWave(); }
-  }
-
-  // ── Camera ──
-  camX = player.x - canvas.width  / 2;
-  camY = player.y - canvas.height / 2;
-  camX = Math.max(0, Math.min(ARENA_W - canvas.width,  camX));
-  camY = Math.max(0, Math.min(ARENA_H - canvas.height, camY));
-
-  draw();
 }
-
-// ─── DRAW ─────────────────────────────────────────────────────────────────────
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  if (gameState === STATE.MENU)     { drawMenu();     return; }
-  if (gameState === STATE.GAMEOVER) { drawGameOver(); return; }
-
-  // World transform
-  ctx.save();
-  ctx.translate(-camX, -camY);
-
-  drawArena();
-  drawParticles();
-  drawBullets();
-  drawEnemies();
-  drawPlayer();
-
-  ctx.restore();
-
-  drawHUD();
-  drawControls();
-}
-
-// ── Arena ──
-function drawArena() {
-  // Background
-  ctx.fillStyle = '#07071a';
-  ctx.fillRect(0, 0, ARENA_W, ARENA_H);
-
-  // Grid
-  ctx.strokeStyle = '#111133';
-  ctx.lineWidth = 1;
-  for (let gx = 0; gx <= ARENA_W; gx += GRID) {
-    ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,ARENA_H); ctx.stroke();
-  }
-  for (let gy = 0; gy <= ARENA_H; gy += GRID) {
-    ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(ARENA_W,gy); ctx.stroke();
-  }
-
-  // Border glow
-  ctx.shadowColor = '#00ffff';
-  ctx.shadowBlur  = 20;
-  ctx.strokeStyle = '#00ffff';
-  ctx.lineWidth   = 3;
-  ctx.strokeRect(2, 2, ARENA_W-4, ARENA_H-4);
-  ctx.shadowBlur  = 0;
-}
-
-// ── Particles ──
-function drawParticles() {
-  for (const p of particles) {
-    const a = Math.max(0, p.life / p.maxLife);
-    ctx.globalAlpha = a;
-    ctx.fillStyle   = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size * a, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-}
-
-// ── Bullets ──
-function drawBullets() {
-  for (const b of bullets) {
-    ctx.save();
-    ctx.shadowColor = b.color;
-    ctx.shadowBlur  = 12;
-    ctx.fillStyle   = b.color;
-    ctx.beginPath();
-    ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-}
-
-// ── Player ──
-function drawPlayer() {
-  if (player.iframes > 0 && Math.floor(player.iframes * 12) % 2 === 0) return;
-
-  ctx.save();
-  ctx.translate(player.x, player.y);
-  ctx.rotate(player.angle);
-
-  // Trail glow
-  ctx.shadowColor = '#00ffff';
-  ctx.shadowBlur  = 25;
-
-  // Ship body
-  ctx.fillStyle = '#00ffff';
-  ctx.beginPath();
-  ctx.moveTo(player.size + 2, 0);
-  ctx.lineTo(-player.size * 0.6, player.size * 0.75);
-  ctx.lineTo(-player.size * 0.35, 0);
-  ctx.lineTo(-player.size * 0.6, -player.size * 0.75);
-  ctx.closePath();
-  ctx.fill();
-
-  // Core dot
-  ctx.fillStyle   = '#ffffff';
-  ctx.shadowBlur  = 5;
-  ctx.beginPath();
-  ctx.arc(-2, 0, 4, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.restore();
-}
-
-// ── Enemies ──
-function drawEnemies() {
-  for (const e of enemies) {
-    const color = e.type === 'shooter' ? '#ff00ff' : '#ff5500';
-
-    ctx.save();
-    ctx.translate(e.x, e.y);
-    ctx.rotate(e.angle + Math.PI / 4);
-    ctx.shadowColor = color;
-    ctx.shadowBlur  = 15;
-    ctx.fillStyle   = color;
-
-    if (e.type === 'shooter') {
-      // Diamond
-      ctx.beginPath();
-      ctx.moveTo(0, -e.size);
-      ctx.lineTo(e.size, 0);
-      ctx.lineTo(0, e.size);
-      ctx.lineTo(-e.size, 0);
-      ctx.closePath();
-    } else {
-      // Square
-      ctx.beginPath();
-      ctx.rect(-e.size, -e.size, e.size*2, e.size*2);
-    }
-    ctx.fill();
-
-    // Inner detail
-    ctx.fillStyle   = 'rgba(255,255,255,0.25)';
-    ctx.shadowBlur  = 0;
-    ctx.beginPath();
-    ctx.arc(0, 0, e.size * 0.35, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
-
-    // HP bar (only if more than 1 max HP)
-    if (e.maxHp > 1) {
-      const bw = e.size * 2.5, bh = 4;
-      const bx = e.x - bw/2, by = e.y - e.size - 10;
-      ctx.fillStyle = '#222';
-      ctx.fillRect(bx, by, bw, bh);
-      ctx.fillStyle = '#00ff88';
-      ctx.fillRect(bx, by, bw * (e.hp / e.maxHp), bh);
-    }
-  }
-}
-
-// ── HUD ──
-function drawHUD() {
-  const W = canvas.width, H = canvas.height;
-
-  // Score & Wave
-  ctx.font      = 'bold 18px "Courier New"';
-  ctx.fillStyle = '#00ffff';
-  ctx.textAlign = 'left';
-  ctx.fillText(`SCORE: ${player.score}`, 16, 30);
-  ctx.fillText(`WAVE:  ${wave}`, 16, 54);
-
-  // HP bar (top center)
-  const barW = Math.min(W * 0.4, 260);
-  const barH = 20;
-  const barX = W / 2 - barW / 2;
-  const barY = 10;
-  const hpR  = player.hp / player.maxHp;
-  const hpColor = hpR > 0.5 ? '#00ff88' : hpR > 0.25 ? '#ffaa00' : '#ff3333';
-
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(barX, barY, barW, barH);
-  ctx.fillStyle = hpColor;
-  ctx.fillRect(barX, barY, barW * hpR, barH);
-  ctx.strokeStyle = '#00ffff';
-  ctx.lineWidth   = 2;
-  ctx.strokeRect(barX, barY, barW, barH);
-
-  ctx.fillStyle = '#fff';
-  ctx.font      = 'bold 11px "Courier New"';
-  ctx.textAlign = 'center';
-  ctx.fillText(`HP ${player.hp} / ${player.maxHp}`, W/2, barY + 14);
-
-  // Dash cooldown indicator
-  if (player.dashCd > 0) {
-    ctx.fillStyle = 'rgba(0,100,255,0.5)';
-    ctx.font      = '13px "Courier New"';
-    ctx.textAlign = 'right';
-    ctx.fillText(`DASH ${player.dashCd.toFixed(1)}s`, W - 16, H - 10);
-  }
-
-  // Wave clear banner
-  if (nextWave && waveTimer > 0) {
-    ctx.globalAlpha = Math.min(1, waveTimer);
-    ctx.fillStyle   = '#ffff00';
-    ctx.shadowColor = '#ffff00';
-    ctx.shadowBlur  = 20;
-    ctx.font        = 'bold 32px "Courier New"';
-    ctx.textAlign   = 'center';
-    ctx.fillText(`✓ WAVE ${wave - 1} CLEAR`, W/2, H/2 - 30);
-    ctx.shadowBlur  = 0;
-    ctx.fillStyle   = '#ffffff';
-    ctx.font        = '20px "Courier New"';
-    ctx.fillText(`Next wave in ${Math.ceil(waveTimer)}…`, W/2, H/2 + 10);
-    ctx.globalAlpha = 1;
-  }
-
-  ctx.textAlign  = 'left';
-  ctx.shadowBlur = 0;
-}
-
-// ── Controls (joystick + buttons) ──
-function drawControls() {
-  const W = canvas.width, H = canvas.height;
-
-  // ── Joystick ──
-  if (JOY.active) {
-    // Outer ring
-    ctx.beginPath();
-    ctx.arc(JOY.baseX, JOY.baseY, JOY.R, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(0,255,255,0.35)';
-    ctx.lineWidth   = 2;
-    ctx.stroke();
-    ctx.fillStyle   = 'rgba(0,255,255,0.08)';
-    ctx.fill();
-
-    // Knob
-    ctx.beginPath();
-    ctx.arc(JOY.kx, JOY.ky, JOY.r, 0, Math.PI * 2);
-    ctx.fillStyle   = 'rgba(0,220,255,0.7)';
-    ctx.fill();
-    ctx.strokeStyle = '#00ffff';
-    ctx.lineWidth   = 2;
-    ctx.stroke();
-  } else {
-    // Ghost hint
-    const hx = W * 0.18, hy = H - 120;
-    ctx.beginPath();
-    ctx.arc(hx, hy, JOY.R, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(0,255,255,0.12)';
-    ctx.lineWidth   = 2;
-    ctx.stroke();
-    ctx.fillStyle   = 'rgba(0,255,255,0.04)';
-    ctx.fill();
-    ctx.fillStyle   = 'rgba(0,255,255,0.25)';
-    ctx.font        = '11px "Courier New"';
-    ctx.textAlign   = 'center';
-    ctx.fillText('MOVE', hx, hy + 4);
-    ctx.textAlign   = 'left';
-  }
-
-  // ── FIRE button ──
-  const f = getFireBtnPos();
-  ctx.beginPath();
-  ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-  ctx.fillStyle   = BTN_FIRE.active
-    ? 'rgba(255,80,0,0.85)'
-    : 'rgba(255,60,0,0.35)';
-  ctx.fill();
-  ctx.strokeStyle = BTN_FIRE.active ? '#ff8800' : '#ff4400';
-  ctx.lineWidth   = 3;
-  ctx.stroke();
-  // Icon: bullet shape
-  ctx.fillStyle   = '#ffffff';
-  ctx.font        = 'bold 15px "Courier New"';
-  ctx.textAlign   = 'center';
-  ctx.fillText('FIRE', f.x, f.y + 5);
-  ctx.textAlign   = 'left';
-
-  // ── DASH button ──
-  const d = getDashBtnPos();
-  const dashReady = player.dashCd <= 0;
-  ctx.beginPath();
-  ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
-  ctx.fillStyle   = BTN_DASH.active
-    ? 'rgba(50,150,255,0.85)'
-    : dashReady ? 'rgba(30,80,255,0.4)' : 'rgba(20,20,60,0.4)';
-  ctx.fill();
-  ctx.strokeStyle = dashReady ? '#4488ff' : '#223366';
-  ctx.lineWidth   = 2.5;
-  ctx.stroke();
-
-  // Dash cooldown arc
-  if (!dashReady) {
-    const prog = 1 - player.dashCd / 1.2;
-    ctx.beginPath();
-    ctx.arc(d.x, d.y, d.r - 4, -Math.PI/2, -Math.PI/2 + prog * Math.PI * 2);
-    ctx.strokeStyle = '#4488ff';
-    ctx.lineWidth   = 4;
-    ctx.stroke();
-  }
-
-  ctx.fillStyle = '#ffffff';
-  ctx.font      = 'bold 12px "Courier New"';
-  ctx.textAlign = 'center';
-  ctx.fillText('DASH', d.x, d.y + 4);
-  ctx.textAlign = 'left';
-}
-
-// ── Menu ──
-function drawMenu() {
-  const W = canvas.width, H = canvas.height;
-
-  // Background
-  ctx.fillStyle = '#07071a';
-  ctx.fillRect(0, 0, W, H);
-
-  // Scanlines effect
-  for (let y = 0; y < H; y += 4) {
-    ctx.fillStyle = 'rgba(0,0,0,0.15)';
-    ctx.fillRect(0, y, W, 2);
-  }
-
-  // Grid lines
-  ctx.strokeStyle = '#0f0f2a';
-  ctx.lineWidth   = 1;
-  for (let x = 0; x < W; x += GRID) {
-    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
-  }
-  for (let y = 0; y < H; y += GRID) {
-    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
-  }
-
-  // Title
-  ctx.textAlign   = 'center';
-  ctx.shadowColor = '#00ffff';
-  ctx.shadowBlur  = 40;
-  ctx.fillStyle   = '#00ffff';
-  ctx.font        = `bold ${Math.min(56, W * 0.1)}px "Courier New"`;
-  ctx.fillText('AI GAME HUB', W/2, H * 0.28);
-
-  ctx.shadowBlur  = 0;
-  ctx.fillStyle   = '#667799';
-  ctx.font        = `${Math.min(18, W * 0.04)}px "Courier New"`;
-  ctx.fillText('— FIXED PERSPECTIVE EDITION —', W/2, H * 0.28 + 40);
-
-  // Buttons
-  const bw = Math.min(260, W * 0.65);
-  const bh = 58;
-  const bx = W/2 - bw/2;
-  const spY = H * 0.5 - 10;
-  const mpY = spY + bh + 18;
-
-  // Single Player
-  ctx.shadowColor = '#00ffff';
-  ctx.shadowBlur  = 15;
-  ctx.fillStyle   = 'rgba(0,255,255,0.12)';
-  ctx.strokeStyle = '#00ffff';
-  ctx.lineWidth   = 2;
-  roundRect(bx, spY, bw, bh, 8);
-  ctx.fill(); ctx.stroke();
-  ctx.shadowBlur  = 0;
-  ctx.fillStyle   = '#00ffff';
-  ctx.font        = 'bold 20px "Courier New"';
-  ctx.fillText('SINGLE PLAYER', W/2, spY + 36);
-
-  // Multiplayer (greyed)
-  ctx.fillStyle   = 'rgba(100,100,180,0.1)';
-  ctx.strokeStyle = '#334466';
-  roundRect(bx, mpY, bw, bh, 8);
-  ctx.fill(); ctx.stroke();
-  ctx.fillStyle   = '#445577';
-  ctx.font        = 'bold 20px "Courier New"';
-  ctx.fillText('MULTIPLAYER', W/2, mpY + 36);
-  ctx.fillStyle   = '#334455';
-  ctx.font        = '13px "Courier New"';
-  ctx.fillText('(coming soon)', W/2, mpY + bh + 18);
-
-  // Keyboard hint
-  ctx.fillStyle = 'rgba(0,255,255,0.3)';
-  ctx.font      = '13px "Courier New"';
-  ctx.fillText('WASD/joystick · SPACE/FIRE btn to shoot · SHIFT/DASH btn to dodge', W/2, H * 0.88);
-
-  ctx.textAlign  = 'left';
-  ctx.shadowBlur = 0;
-
-  // Store for click detection
-  menuBtnSP = { bx, by: spY, bw, bh };
-}
-
-// ── Game Over ──
-function drawGameOver() {
-  const W = canvas.width, H = canvas.height;
-  ctx.fillStyle = 'rgba(5,5,18,0.92)';
-  ctx.fillRect(0, 0, W, H);
-
-  ctx.textAlign   = 'center';
-  ctx.shadowColor = '#ff3333';
-  ctx.shadowBlur  = 35;
-  ctx.fillStyle   = '#ff3333';
-  ctx.font        = `bold ${Math.min(52, W * 0.1)}px "Courier New"`;
-  ctx.fillText('GAME OVER', W/2, H/2 - 70);
-
-  ctx.shadowBlur  = 0;
-  ctx.fillStyle   = '#00ffff';
-  ctx.font        = '26px "Courier New"';
-  ctx.fillText(`SCORE   ${player.score}`, W/2, H/2 - 10);
-  ctx.fillText(`WAVE    ${wave}`, W/2, H/2 + 30);
-
-  ctx.fillStyle   = '#667799';
-  ctx.font        = '16px "Courier New"';
-  ctx.fillText('Tap or press any key to return', W/2, H/2 + 90);
-
-  ctx.textAlign  = 'left';
-  ctx.shadowBlur = 0;
-}
-
-// ─── UTILITY ──────────────────────────────────────────────────────────────────
-function roundRect(x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
-// ─── KICK OFF ────────────────────────────────────────────────────────────────
-requestAnimationFrame(ts => { lastT = ts; update(ts); });
 </script>
+
 </body>
 </html>
