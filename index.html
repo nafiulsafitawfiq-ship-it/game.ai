@@ -1,252 +1,110 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>nafiul204ai — Web Game Maker</title>
-    <style>
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --accent: #3b82f6;
-            --text: #f8fafc;
-            --text-dim: #94a3b8;
-        }
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            box-sizing: border-box;
-        }
-        header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        h1 { margin: 0 0 10px 0; color: #60a5fa; }
-        .config-panel {
-            background: var(--card-bg);
-            padding: 15px;
-            border-radius: 8px;
-            display: flex;
-            gap: 15px;
-            flex-wrap: wrap;
-            margin-bottom: 20px;
-            align-items: center;
-        }
-        input, button, textarea {
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid #475569;
-            background: #0f172a;
-            color: white;
-            font-size: 14px;
-        }
-        input[type="password"] { flex: 1; min-width: 250px; }
-        input[type="text"] { flex: 2; min-width: 300px; }
-        button {
-            background: var(--accent);
-            cursor: pointer;
-            font-weight: bold;
-            border: none;
-            transition: background 0.2s;
-        }
-        button:hover { background: #2563eb; }
-        button:disabled {
-            background: #475569;
-            cursor: not-allowed;
-        }
-        .status-msg {
-            color: #f59e0b;
-            font-weight: 500;
-            margin-left: 10px;
-        }
-        .main-layout {
-            display: flex;
-            gap: 20px;
-            flex: 1;
-            min-height: 0;
-        }
-        .pane {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: var(--card-bg);
-            border-radius: 8px;
-            padding: 15px;
-            overflow: hidden;
-        }
-        .pane h3 { margin: 0 0 10px 0; display: flex; justify-content: space-between; align-items: center; }
-        iframe {
-            width: 100%;
-            flex: 1;
-            border: none;
-            background: white;
-            border-radius: 6px;
-        }
-        textarea {
-            width: 100%;
-            flex: 1;
-            resize: none;
-            font-family: monospace;
-            box-sizing: border-box;
-            background: #090d16;
-        }
-    </style>
-</head>
-<body>
+<!-- Import Google's official browser-compatible GenAI Web Library module -->
+<script type="module">
+    import { GoogleGenAI } from 'https://esm.run';
 
-    <header>
-        <h1>🎮 nafiul204ai — AI Game Generator</h1>
-        <p style="color: var(--text-dim); margin:0;">Create, preview, and extract fully playable web games directly in your browser.</p>
-    </header>
+    // --- RATE LIMIT DEFENSE SYSTEM ---
+    let requestTimestamps = [];
+    const MAX_REQUESTS_PER_MINUTE = 12; 
 
-    <div class="config-panel">
-        <input type="password" id="apiKey" placeholder="Enter your free Google Gemini API Key">
-        <input type="text" id="gamePrompt" placeholder="What game should nafiul204ai build? (e.g., Space Invaders with a neon theme)">
-        <button id="generateBtn" onclick="generateGame()">Build Game 🚀</button>
-        <span id="status" class="status-msg"></span>
-    </div>
+    function checkRateLimit() {
+        const now = Date.now();
+        requestTimestamps = requestTimestamps.filter(timestamp => now - timestamp < 60000);
+        
+        if (requestTimestamps.length >= MAX_REQUESTS_PER_MINUTE) {
+            const oldestRequest = requestTimestamps[0];
+            const waitTimeSeconds = Math.ceil((60000 - (now - oldestRequest)) / 1000);
+            return waitTimeSeconds;
+        }
+        return 0;
+    }
 
-    <div class="main-layout">
-        <div class="pane">
-            <h3>🖥️ Live Web Preview</h3>
-            <iframe id="preview"></iframe>
-        </div>
-        <div class="pane">
-            <h3>
-                <span>💻 Source Code</span>
-                <button onclick="copyCode()" style="padding:4px 10px; font-size:12px;">Copy Code</button>
-            </h3>
-            <textarea id="codeOutput" readonly placeholder="The generated HTML code will appear here..."></textarea>
-        </div>
-    </div>
+    // Bind function to the global window context so the HTML button can trigger it
+    window.generateGame = async function() {
+        const apiKey = document.getElementById('apiKey').value.trim();
+        const prompt = document.getElementById('gamePrompt').value.trim();
+        const btn = document.getElementById('generateBtn');
+        const status = document.getElementById('status');
 
-    <script>
-        // --- RATE LIMIT DEFENSE SYSTEM ---
-        // Google Free Tier limits: 15 RPM (Requests Per Minute).
-        // We log timestamps of successful calls to guarantee we don't trigger the 30s block.
-        let requestTimestamps = [];
-        const MAX_REQUESTS_PER_MINUTE = 12; // Conservative threshold to stay safe
-
-        function checkRateLimit() {
-            const now = Date.now();
-            // Filter out calls older than 60 seconds
-            requestTimestamps = requestTimestamps.filter(timestamp => now - timestamp < 60000);
-            
-            if (requestTimestamps.length >= MAX_REQUESTS_PER_MINUTE) {
-                const oldestRequest = requestTimestamps[0];
-                const waitTimeSeconds = Math.ceil((60000 - (now - oldestRequest)) / 1000);
-                return waitTimeSeconds;
-            }
-            return 0;
+        if (!apiKey) {
+            alert("Please enter a valid Google Gemini API Key.");
+            return;
+        }
+        if (!prompt) {
+            alert("Please describe the game you want to build.");
+            return;
         }
 
-        async function generateGame() {
-            const apiKey = document.getElementById('apiKey').value.trim();
-            const prompt = document.getElementById('gamePrompt').value.trim();
-            const btn = document.getElementById('generateBtn');
-            const status = document.getElementById('status');
-
-            if (!apiKey) {
-                alert("Please enter a valid Google Gemini API Key.");
-                return;
-            }
-            if (!prompt) {
-                alert("Please describe the game you want to build.");
-                return;
-            }
-
-            // Check if the user is hitting the speed limit
-            const cooldownWindow = checkRateLimit();
-            if (cooldownWindow > 0) {
-                status.innerText = `⏳ Rate limit defense active. Please wait ${cooldownWindow} seconds...`;
-                btn.disabled = true;
-                setTimeout(() => {
-                    btn.disabled = false;
-                    status.innerText = "";
-                }, cooldownWindow * 1000);
-                return;
-            }
-
-            // Lock UI during generation
+        const cooldownWindow = checkRateLimit();
+        if (cooldownWindow > 0) {
+            status.innerText = `⏳ Rate limit defense active. Please wait ${cooldownWindow} seconds...`;
             btn.disabled = true;
-            status.innerText = "🧠 nafiul204ai is writing code...";
+            setTimeout(() => { btn.disabled = false; status.innerText = ""; }, cooldownWindow * 1000);
+            return;
+        }
 
-            try {
-                // Google GenAI API endpoint for client-side fetches
-                const url = `https://googleapis.com{apiKey}`;
+        btn.disabled = true;
+        status.innerText = "🧠 nafiul204ai is writing code...";
 
-                const systemInstruction = "You are nafiul204ai, an expert game developer. " +
-                    "Your job is to generate a fully complete, self-contained, single-file HTML/CSS/JavaScript game based on the user's request. " +
-                    "Do not use external assets like image URLs or audio tracks unless they use public placeholders. " +
-                    "The game must look modern, dark/cyberpunk themed, use interactive canvas or DOM controls (keyboard/mouse), " +
-                    "have a visible live scoring system, and a prominent 'Restart Game' button if the player loses. " +
-                    "Return ONLY the valid raw HTML code block enclosed inside standard markdown ```html and ``` tags.";
+        try {
+            // Initialize the official Google SDK wrapper (avoids manual fetch/CORS bugs)
+            const ai = new GoogleGenAI({ apiKey: apiKey });
 
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
-                        systemInstruction: { parts: [{ text: systemInstruction }] },
-                        generationConfig: { temperature: 0.7 }
-                    })
-                });
+            const systemInstruction = "You are nafiul204ai, an expert game developer. " +
+                "Your job is to generate a fully complete, self-contained, single-file HTML/CSS/JavaScript game based on the user's request. " +
+                "Do not use external assets like image URLs or audio tracks unless they use public placeholders. " +
+                "The game must look modern, dark/cyberpunk themed, use interactive canvas or DOM controls (keyboard/mouse), " +
+                "have a visible live scoring system, and a prominent 'Restart Game' button if the player loses. " +
+                "Return ONLY the valid raw HTML code block enclosed inside standard markdown ```html and ``` tags.";
 
-                if (!response.ok) {
-                    const errData = await response.json();
-                    if (response.status === 429) {
-                        throw new Error("Google API limit triggered. Wait 30 seconds and try again.");
-                    }
-                    throw new Error(errData.error?.message || "API Connection failed.");
+            // Execute using the optimal web wrapper setup
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+                config: {
+                    systemInstruction: systemInstruction,
+                    temperature: 0.7
                 }
+            });
 
-                // Log this successful request to track the rate limit window
-                requestTimestamps.push(Date.now());
+            // Log successful attempt to manage your rate limit pool
+            requestTimestamps.push(Date.now());
 
-                const data = await response.json();
-                const rawText = data.candidates[0].content.parts[0].text;
+            const rawText = response.text;
+            if (!rawText) throw new Error("Received blank response from AI model.");
 
-                // Extract HTML content cleanly using Regex
-                const htmlRegex = /```html([\s\S]*?)```/;
-                const match = rawText.match(htmlRegex);
-                let extractedCode = "";
+            // Extract the generated game
+            const htmlRegex = /```html([\s\S]*?)```/;
+            const match = rawText.match(htmlRegex);
+            let extractedCode = "";
 
-                if (match && match[1]) {
-                    extractedCode = match[1].trim();
-                } else if (rawText.includes("<html") || rawText.includes("<HTML")) {
-                    extractedCode = rawText.trim();
-                } else {
-                    throw new Error("AI output was missing structural game code. Please retry with a clearer prompt.");
-                }
-
-                // Populate live preview frame and code editor panel
-                document.getElementById('codeOutput').value = extractedCode;
-                const iframe = document.getElementById('preview');
-                iframe.srcdoc = extractedCode;
-
-                status.innerText = "🎉 Game Created Successfully!";
-
-            } catch (error) {
-                console.error(error);
-                status.innerText = `❌ Error: ${error.message}`;
-            } finally {
-                btn.disabled = false;
+            if (match && match[1]) {
+                extractedCode = match[1].trim();
+            } else if (rawText.includes("<html") || rawText.includes("<HTML")) {
+                extractedCode = rawText.trim();
+            } else {
+                throw new Error("AI output was missing structural game code. Please retry with a clearer prompt.");
             }
-        }
 
-        function copyCode() {
-            const codeBox = document.getElementById('codeOutput');
-            if (!codeBox.value) return;
-            codeBox.select();
-            document.execCommand('copy');
-            alert("Code copied to clipboard!");
+            document.getElementById('codeOutput').value = extractedCode;
+            const iframe = document.getElementById('preview');
+            iframe.srcdoc = extractedCode;
+
+            status.innerText = "🎉 Game Created Successfully!";
+
+        } catch (error) {
+            console.error(error);
+            // Catch-all message for debugging
+            status.innerText = `❌ Error: ${error.message || "Connection blocked. Turn off ad-blockers and try again."}`;
+        } finally {
+            btn.disabled = false;
         }
-    </script>
-</body>
-</html>
+    }
+
+    window.copyCode = function() {
+        const codeBox = document.getElementById('codeOutput');
+        if (!codeBox.value) return;
+        codeBox.select();
+        document.execCommand('copy');
+        alert("Code copied to clipboard!");
+    }
+</script>
