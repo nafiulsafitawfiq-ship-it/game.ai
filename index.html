@@ -3,613 +3,212 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>nafiul204ai — AI Game Forge</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=IBM+Plex+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+<title>nafiul204ai — Web Game Maker</title>
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  --bg:      #02040a;
-  --surface: #080f1e;
-  --card:    #0c1628;
-  --border:  #0e2040;
-  --border2: #1a3560;
-  --cyan:    #00e5ff;
-  --violet:  #a855f7;
-  --amber:   #fbbf24;
-  --green:   #22d3a0;
-  --red:     #f4455a;
-  --text:    #dde8f5;
-  --muted:   #3a5880;
-  --ffd: 'Syne', sans-serif;
-  --ffm: 'IBM Plex Mono', monospace;
-}
-
-html, body {
-  height: 100%;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--ffm);
-  overflow: hidden;
-}
-
-/* on mobile allow scroll */
-@media (max-width: 767px) {
-  html, body { height: auto; overflow: auto; }
-}
-
-#canvas-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
-
-#app {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-}
-
-@media (max-width: 767px) {
-  #app { height: auto; min-height: 100dvh; }
-}
-
-/* ── HEADER ── */
-header {
-  flex-shrink: 0;
-  padding: 12px 18px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid var(--border);
-  background: linear-gradient(90deg, rgba(0,229,255,0.05), transparent);
-}
-
-.logo {
-  width: 36px; height: 36px; flex-shrink: 0;
-  background: linear-gradient(135deg, var(--cyan), var(--violet));
-  border-radius: 9px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
-  box-shadow: 0 0 18px rgba(0,229,255,0.35);
-}
-
-.brand h1 {
-  font-family: var(--ffd);
-  font-size: clamp(13px, 3.5vw, 18px);
-  font-weight: 800;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  background: linear-gradient(90deg, var(--cyan), var(--violet));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.brand p { font-size: 9px; color: var(--muted); letter-spacing: 1.5px; margin-top: 2px; }
-
-.badge {
-  margin-left: auto;
-  display: flex; align-items: center; gap: 5px;
-  font-size: 9px; color: var(--green); letter-spacing: 1px;
-  padding: 4px 11px; border-radius: 20px;
-  border: 1px solid rgba(34,211,160,0.3);
-  background: rgba(34,211,160,0.06);
-  white-space: nowrap;
-}
-
-.pulse-dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--green);
-  animation: blink 2s ease-in-out infinite;
-}
-@keyframes blink {
-  0%,100% { opacity:1; box-shadow: 0 0 5px var(--green); }
-  50%      { opacity:.3; box-shadow: none; }
-}
-
-/* ── CONTROLS ── */
-.controls {
-  flex-shrink: 0;
-  padding: 12px 18px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.row { display: flex; gap: 10px; flex-wrap: wrap; }
-
-.field {
-  display: flex; flex-direction: column; gap: 4px;
-  flex: 1; min-width: 160px;
-}
-.field label {
-  font-size: 9px; color: var(--muted);
-  letter-spacing: 2px; text-transform: uppercase;
-}
-
-input {
-  background: var(--bg);
-  border: 1px solid var(--border2);
-  color: var(--text);
-  padding: 9px 12px;
-  border-radius: 6px;
-  font-family: var(--ffm);
-  font-size: 13px;
-  outline: none;
-  width: 100%;
-  transition: border-color .2s, box-shadow .2s;
-}
-input:focus {
-  border-color: var(--cyan);
-  box-shadow: 0 0 0 3px rgba(0,229,255,0.08);
-}
-
-.btn-build {
-  padding: 10px 22px;
-  background: linear-gradient(135deg, var(--cyan), #0070ff);
-  color: #000;
-  font-family: var(--ffd);
-  font-weight: 800;
-  font-size: 11px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all .2s;
-  box-shadow: 0 0 18px rgba(0,229,255,0.3);
-  white-space: nowrap;
-  align-self: flex-end;
-  width: 100%;
-}
-@media (min-width: 500px) { .btn-build { width: auto; } }
-
-.btn-build:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 0 32px rgba(0,229,255,0.55);
-}
-.btn-build:disabled {
-  opacity: .35; cursor: not-allowed;
-  transform: none; box-shadow: none;
-}
-
-.bottom-row {
-  display: flex; align-items: center;
-  gap: 10px; flex-wrap: wrap;
-}
-
-/* status */
-#status {
-  display: none; align-items: center; gap: 7px;
-  font-size: 11px; padding: 5px 13px; border-radius: 20px;
-}
-#status.loading { color:var(--amber); background:rgba(251,191,36,.08); border:1px solid rgba(251,191,36,.2); }
-#status.success { color:var(--green); background:rgba(34,211,160,.08); border:1px solid rgba(34,211,160,.2); }
-#status.error   { color:var(--red);   background:rgba(244,69,90,.08);  border:1px solid rgba(244,69,90,.2); }
-
-/* meter */
-.meter { margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; gap:3px; }
-.meter-lbl { font-size:9px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
-.meter-track { width:80px; height:3px; background:var(--border2); border-radius:2px; overflow:hidden; }
-.meter-fill  { height:100%; width:0%; background:linear-gradient(90deg,var(--green),var(--cyan)); border-radius:2px; transition:width .4s; }
-
-/* ── PANELS ── */
-.panels {
-  flex: 1;
-  display: flex;
-  flex-direction: column; /* stacked on mobile */
-  min-height: 0;
-  overflow: hidden;
-}
-@media (min-width: 768px) {
-  .panels { flex-direction: row; }
-}
-
-.panel {
-  display: flex; flex-direction: column;
-  flex: 1;
-  min-height: 300px;
-  overflow: hidden;
-}
-@media (min-width: 768px) {
-  .panel + .panel { border-left: 1px solid var(--border); }
-}
-@media (max-width: 767px) {
-  .panel { border-top: 1px solid var(--border); min-height: 260px; }
-}
-
-.panel-head {
-  flex-shrink: 0;
-  padding: 9px 14px;
-  background: var(--card);
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between;
-}
-
-.panel-title {
-  display: flex; align-items: center; gap: 7px;
-  font-size: 9px; font-weight: 600;
-  letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
-}
-
-.pip { width:7px; height:7px; border-radius:50%; }
-.pip-c { background:var(--cyan);   box-shadow:0 0 6px var(--cyan); }
-.pip-v { background:var(--violet); box-shadow:0 0 6px var(--violet); }
-
-.btn-group { display:flex; gap:6px; align-items:center; }
-
-.btn-sm {
-  padding: 4px 11px;
-  font-family: var(--ffm); font-size: 9px; letter-spacing: 1px;
-  border-radius: 4px; cursor: pointer;
-  border: 1px solid var(--border2);
-  background: transparent; color: var(--muted);
-  transition: all .15s;
-}
-.btn-sm:hover { border-color:var(--cyan); color:var(--cyan); }
-
-/* Download game button — green, prominent */
-.btn-dl {
-  padding: 4px 12px;
-  font-family: var(--ffm); font-size: 9px; letter-spacing: 1px;
-  border-radius: 4px; cursor: pointer;
-  border: 1px solid rgba(34,211,160,0.5);
-  background: rgba(34,211,160,0.1);
-  color: var(--green);
-  transition: all .15s;
-  display: none; /* shown after game generates */
-}
-.btn-dl:hover { background: rgba(34,211,160,0.2); }
-
-/* preview area */
-.preview-body {
-  flex:1; display:flex; flex-direction:column;
-  overflow:hidden; position:relative;
-}
-
-.empty {
-  flex:1; display:flex; flex-direction:column;
-  align-items:center; justify-content:center;
-  gap:12px; color:var(--muted);
-}
-.empty .icon { font-size:44px; opacity:.2; animation:float 4s ease-in-out infinite; }
-@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
-.empty p { font-size:10px; letter-spacing:2px; text-transform:uppercase; }
-
-iframe { flex:1; border:none; background:#fff; display:none; width:100%; }
-
-/* code area */
-textarea {
-  flex:1; resize:none; border:none; outline:none;
-  background:var(--bg); color:#7dd3fc;
-  font-family:var(--ffm); font-size:12px;
-  line-height:1.75; padding:14px 16px;
-}
-textarea::placeholder { color:var(--border2); }
-
-::-webkit-scrollbar { width:5px; }
-::-webkit-scrollbar-track { background:var(--bg); }
-::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
-
-@keyframes spin { to{transform:rotate(360deg)} }
-.spin {
-  display:inline-block; width:11px; height:11px;
-  border:2px solid rgba(251,191,36,.2);
-  border-top-color:var(--amber);
-  border-radius:50%; animation:spin .7s linear infinite;
-}
+  :root {
+    --bg-color: #0f172a;
+    --card-bg: #1e293b;
+    --accent: #3b82f6;
+    --text: #f8fafc;
+    --text-dim: #94a3b8;
+  }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text);
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    box-sizing: border-box;
+  }
+  header { text-align: center; margin-bottom: 20px; }
+  h1 { margin: 0 0 10px 0; color: #60a5fa; }
+  .config-panel {
+    background: var(--card-bg);
+    padding: 15px;
+    border-radius: 8px;
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    align-items: center;
+  }
+  input, button, textarea {
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #475569;
+    background: #0f172a;
+    color: white;
+    font-size: 14px;
+  }
+  input[type="password"] { flex: 1; min-width: 250px; }
+  input[type="text"]     { flex: 2; min-width: 300px; }
+  button {
+    background: var(--accent);
+    cursor: pointer;
+    font-weight: bold;
+    border: none;
+    transition: background 0.2s;
+  }
+  button:hover { background: #2563eb; }
+  button:disabled { background: #475569; cursor: not-allowed; }
+  .status-msg { color: #f59e0b; font-weight: 500; margin-left: 10px; }
+  .main-layout { display: flex; gap: 20px; flex: 1; min-height: 0; }
+  .pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--card-bg);
+    border-radius: 8px;
+    padding: 15px;
+    overflow: hidden;
+  }
+  .pane h3 { margin: 0 0 10px 0; display: flex; justify-content: space-between; align-items: center; }
+  iframe { width: 100%; flex: 1; border: none; background: white; border-radius: 6px; }
+  textarea {
+    width: 100%;
+    flex: 1;
+    resize: none;
+    font-family: monospace;
+    box-sizing: border-box;
+    background: #090d16;
+  }
 </style>
 </head>
 <body>
-<canvas id="canvas-bg"></canvas>
 
-<div id="app">
+<header>
+  <h1>🎮 nafiul204ai — AI Game Generator</h1>
+  <p style="color: var(--text-dim); margin:0;">Create, preview, and extract fully playable web games directly in your browser.</p>
+</header>
 
-  <!-- HEADER -->
-  <header>
-    <div class="logo">🎮</div>
-    <div class="brand">
-      <h1>Nafiul204ai</h1>
-      <p>AI Game Forge · Gemini 2.5 Flash</p>
-    </div>
-    <div class="badge"><div class="pulse-dot"></div>Free Tier</div>
-  </header>
+<div class="config-panel">
+  <input type="password" id="apiKey" placeholder="Paste your free Google Gemini API Key (from aistudio.google.com)">
+  <input type="text"     id="gamePrompt" placeholder="What game should nafiul204ai build? (e.g., Space Invaders with a neon theme)">
+  <button id="generateBtn" onclick="generateGame()">Build Game 🚀</button>
+  <span id="status" class="status-msg"></span>
+</div>
 
-  <!-- CONTROLS -->
-  <div class="controls">
-    <div class="row">
-      <div class="field" style="max-width:220px">
-        <label>Gemini API Key</label>
-        <input type="password" id="apiKey"
-          placeholder="Paste key, or leave empty">
-      </div>
-      <div class="field">
-        <label>What game to build?</label>
-        <input type="text" id="prompt"
-          placeholder="e.g. Neon snake game, Space shooter, Brick breaker..."
-          onkeydown="if(event.key==='Enter') generate()">
-      </div>
-      <button class="btn-build" id="buildBtn" onclick="generate()">⚡ Build</button>
-    </div>
-    <div class="bottom-row">
-      <div id="status"></div>
-      <div class="meter">
-        <span class="meter-lbl" id="mLbl">0 / 9 used</span>
-        <div class="meter-track"><div class="meter-fill" id="mFill"></div></div>
-      </div>
-    </div>
+<div class="main-layout">
+  <div class="pane">
+    <h3>🖥️ Live Web Preview</h3>
+    <iframe id="preview"></iframe>
   </div>
-
-  <!-- PANELS -->
-  <div class="panels">
-
-    <!-- Preview -->
-    <div class="panel">
-      <div class="panel-head">
-        <div class="panel-title"><div class="pip pip-c"></div>Live Preview</div>
-        <div class="btn-group">
-          <!-- After game generates, this button downloads a .html file.
-               Double-click that file in your folder → game plays in browser! -->
-          <button class="btn-dl" id="dlBtn" onclick="downloadGame()">⬇ Download Game</button>
-          <button class="btn-sm" onclick="reloadPreview()">↺ Reload</button>
-        </div>
-      </div>
-      <div class="preview-body">
-        <div class="empty" id="emptyState">
-          <div class="icon">🕹️</div>
-          <p>Game preview loads here</p>
-        </div>
-        <iframe id="preview" title="Game Preview"></iframe>
-      </div>
-    </div>
-
-    <!-- Code -->
-    <div class="panel">
-      <div class="panel-head">
-        <div class="panel-title"><div class="pip pip-v"></div>Source Code</div>
-        <div class="btn-group">
-          <button class="btn-sm" id="copyBtn" onclick="copyCode(this)">Copy</button>
-        </div>
-      </div>
-      <textarea id="code" readonly
-        placeholder="// Generated game code appears here...&#10;//&#10;// After building, click ⬇ Download Game&#10;// Open the .html file → your game plays instantly!"></textarea>
-    </div>
-
+  <div class="pane">
+    <h3>
+      <span>💻 Source Code</span>
+      <button onclick="copyCode()" style="padding:4px 10px; font-size:12px;">Copy Code</button>
+    </h3>
+    <textarea id="codeOutput" readonly placeholder="The generated HTML code will appear here..."></textarea>
   </div>
 </div>
 
 <script>
-// ─────────────────────────────────────────────────────────────
-//  IMPORTANT FIX: gemini-2.0-flash was RETIRED March 2026!
-//  Now using gemini-2.5-flash which is the current free model.
-//  Free tier: 10 RPM, 500 RPD
-// ─────────────────────────────────────────────────────────────
-const MODEL = 'gemini-2.5-flash-preview-05-20';
-const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+  // --- RATE LIMIT DEFENSE ---
+  let requestTimestamps = [];
+  const MAX_REQUESTS_PER_MINUTE = 10;
 
-// Stay safely under 10 RPM free limit
-const MAX_RPM = 9;
-let reqLog = [];
-
-function canRequest() {
-  const now = Date.now();
-  reqLog = reqLog.filter(t => now - t < 60000);
-  return reqLog.length < MAX_RPM;
-}
-function logReq() {
-  reqLog.push(Date.now());
-  const used = reqLog.length;
-  document.getElementById('mFill').style.width = (used / MAX_RPM * 100) + '%';
-  document.getElementById('mLbl').textContent = `${used} / ${MAX_RPM} used`;
-}
-function waitSecs() {
-  return reqLog.length ? Math.ceil((60000 - (Date.now() - reqLog[0])) / 1000) : 0;
-}
-
-// ── Status helpers ────────────────────────────────────────────
-function setStatus(type, html) {
-  const el = document.getElementById('status');
-  el.className = 'status ' + type;
-  el.style.display = 'flex';
-  el.innerHTML = html;
-}
-function clearStatus() {
-  document.getElementById('status').style.display = 'none';
-}
-
-// ── Main generator ────────────────────────────────────────────
-async function generate() {
-  const apiKey = document.getElementById('apiKey').value.trim();
-  const prompt = document.getElementById('prompt').value.trim();
-  const btn    = document.getElementById('buildBtn');
-
-  if (!prompt) { alert('Describe the game you want!'); return; }
-
-  if (!canRequest()) {
-    setStatus('error', `⏳ Wait ${waitSecs()}s — free tier limit`);
-    return;
+  function checkRateLimit() {
+    const now = Date.now();
+    requestTimestamps = requestTimestamps.filter(t => now - t < 60000);
+    if (requestTimestamps.length >= MAX_REQUESTS_PER_MINUTE) {
+      return Math.ceil((60000 - (now - requestTimestamps[0])) / 1000);
+    }
+    return 0;
   }
 
-  btn.disabled = true;
-  setStatus('loading', '<span class="spin"></span>&nbsp;AI is coding your game...');
+  async function generateGame() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    const prompt = document.getElementById('gamePrompt').value.trim();
+    const btn    = document.getElementById('generateBtn');
+    const status = document.getElementById('status');
 
-  try {
-    let rawText;
+    if (!apiKey) { alert('Please enter your free Gemini API Key.'); return; }
+    if (!prompt) { alert('Please describe the game you want nafiul204ai to build.'); return; }
 
-    // ── Server mode: no key typed → uses your .env key on the backend ──
-    if (!apiKey) {
-      const res = await fetch('/api/generate', {
-        method: 'POST',
+    const wait = checkRateLimit();
+    if (wait > 0) {
+      status.innerText = `⏳ Rate limit defense active. Please wait ${wait} seconds...`;
+      btn.disabled = true;
+      setTimeout(() => { btn.disabled = false; status.innerText = ''; }, wait * 1000);
+      return;
+    }
+
+    btn.disabled = true;
+    status.innerText = '🧠 nafiul204ai is writing code...';
+
+    // ✅ FIXED: correct Gemini REST URL with working model
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+    const systemInstruction =
+      'You are nafiul204ai, an expert game developer. ' +
+      'Your job is to generate a fully complete, self-contained, single-file HTML/CSS/JavaScript game ' +
+      'based on the user\'s request. ' +
+      'Do not use external assets like image URLs or audio tracks unless they use public placeholders. ' +
+      'The game must look modern, dark/cyberpunk themed, use interactive canvas or DOM controls ' +
+      '(keyboard/mouse), have a visible live scoring system, and a prominent "Restart Game" button ' +
+      'if the player loses. ' +
+      'Return ONLY the valid raw HTML code block enclosed inside standard markdown ```html and ``` tags.';
+
+    try {
+      const response = await fetch(url, {
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          generationConfig:  { temperature: 0.7 }
+        })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
-      rawText = data.raw;
 
-    // ── Direct mode: key typed in the box → calls Gemini from browser ──
-    } else {
-      rawText = await callGemini(apiKey, prompt);
+      if (!response.ok) {
+        const errData = await response.json();
+        if (response.status === 429) throw new Error('Google free limit reached. Please wait a moment and retry.');
+        if (response.status === 400) throw new Error('Invalid API key or bad request. Check your key and try again.');
+        throw new Error(errData?.error?.message || `API error (HTTP ${response.status})`);
+      }
+
+      requestTimestamps.push(Date.now());
+
+      const data = await response.json();
+      const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!rawText) throw new Error('Gemini returned an empty response. Please retry.');
+
+      // Extract HTML from markdown code block
+      const htmlMatch = rawText.match(/```html([\s\S]*?)```/i);
+      let gameCode = '';
+
+      if (htmlMatch?.[1]) {
+        gameCode = htmlMatch[1].trim();
+      } else if (rawText.includes('<html') || rawText.includes('<!DOCTYPE')) {
+        gameCode = rawText.trim();
+      } else {
+        throw new Error('AI output was missing HTML. Try a clearer prompt.');
+      }
+
+      document.getElementById('codeOutput').value = gameCode;
+      document.getElementById('preview').srcdoc   = gameCode;
+      status.innerText = '🎉 Game Created Successfully!';
+
+    } catch (error) {
+      console.error(error);
+      status.innerText = `❌ Error: ${error.message}`;
+    } finally {
+      btn.disabled = false;
     }
-
-    logReq();
-
-    // Extract the HTML from the markdown code block
-    const match  = rawText.match(/```html([\s\S]*?)```/i);
-    const code   = match ? match[1].trim() : rawText.trim();
-
-    if (!code.includes('<')) {
-      throw new Error('No HTML returned. Try a more specific prompt.');
-    }
-
-    document.getElementById('code').value = code;
-    showPreview(code);
-    document.getElementById('dlBtn').style.display = 'block';
-    setStatus('success', '✓ Game ready! Download or play in the preview →');
-    setTimeout(clearStatus, 6000);
-
-  } catch (err) {
-    console.error(err);
-    setStatus('error', '✗ ' + err.message);
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-// ── Gemini API call with automatic retry on 429 ───────────────
-async function callGemini(apiKey, prompt, retries = 2) {
-  const url = `${API_BASE}/${MODEL}:generateContent?key=${apiKey}`;
-
-  const system =
-    "You are nafiul204ai, an expert game developer. " +
-    "Generate a fully complete, self-contained, single-file HTML/CSS/JS game. " +
-    "Dark/cyberpunk theme, canvas or DOM, keyboard + mouse controls. " +
-    "Must have: live score, lives, game-over screen, restart button. " +
-    "No external images or audio files. " +
-    "Return ONLY the HTML inside ```html ... ``` tags. Nothing else.";
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      systemInstruction: { parts: [{ text: system }] },
-      generationConfig: { temperature: 0.7, maxOutputTokens: 8192 }
-    })
-  });
-
-  // ── Handle 429 with auto-retry ────────────────────────────
-  if (res.status === 429) {
-    if (retries > 0) {
-      setStatus('loading', '<span class="spin"></span>&nbsp;Rate limit hit — retrying in 15s...');
-      await sleep(15000);
-      return callGemini(apiKey, prompt, retries - 1);
-    }
-    throw new Error('Free tier quota hit. Wait 60s then try again. (10 req/min limit)');
   }
 
-  if (res.status === 403) throw new Error('Invalid API key. Check it and try again.');
-  if (res.status === 400) {
-    const err = await res.json().catch(() => ({}));
-    // Handle model not found — fall back to stable model name
-    if (err?.error?.message?.includes('not found') || err?.error?.message?.includes('deprecated')) {
-      throw new Error('Model error. Make sure you have Gemini API enabled in Google AI Studio.');
-    }
-    throw new Error(err?.error?.message || 'Bad request.');
+  function copyCode() {
+    const codeBox = document.getElementById('codeOutput');
+    if (!codeBox.value) return;
+    codeBox.select();
+    document.execCommand('copy');
+    alert('Code copied to clipboard!');
   }
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message || `HTTP ${res.status}`);
-  }
-
-  const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-  if (!text) {
-    // Safety filter blocked it
-    const reason = data?.candidates?.[0]?.finishReason;
-    if (reason === 'SAFETY') throw new Error('Prompt blocked by safety filter. Try rephrasing.');
-    throw new Error('Empty response from Gemini. Try again.');
-  }
-
-  return text;
-}
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-// ── Preview ───────────────────────────────────────────────────
-function showPreview(code) {
-  document.getElementById('emptyState').style.display = 'none';
-  const f = document.getElementById('preview');
-  f.style.display = 'block';
-  f.srcdoc = code;
-}
-
-function reloadPreview() {
-  const code = document.getElementById('code').value;
-  if (code) showPreview(code);
-}
-
-// ── Copy code ─────────────────────────────────────────────────
-function copyCode(btn) {
-  const code = document.getElementById('code').value;
-  if (!code) return;
-  navigator.clipboard.writeText(code).then(() => {
-    btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = 'Copy', 2000);
-  });
-}
-
-// ── Download game as .html file ───────────────────────────────
-// When you double-click the downloaded file it opens in your browser
-// and you can play the game immediately — no internet needed!
-function downloadGame() {
-  const code = document.getElementById('code').value;
-  if (!code) return;
-  const blob = new Blob([code], { type: 'text/html' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'my-game.html';
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-
-// ── Starfield background ──────────────────────────────────────
-(function () {
-  const c = document.getElementById('canvas-bg');
-  const ctx = c.getContext('2d');
-  let W, H, stars = [];
-
-  function resize() {
-    W = c.width  = window.innerWidth;
-    H = c.height = window.innerHeight;
-  }
-  function init() {
-    stars = Array.from({ length: 100 }, () => ({
-      x: Math.random() * W, y: Math.random() * H,
-      r: Math.random() * 1.2 + 0.2,
-      speed: Math.random() * 0.25 + 0.05,
-      o: Math.random() * Math.PI * 2
-    }));
-  }
-  function draw() {
-    ctx.clearRect(0, 0, W, H);
-    for (const s of stars) {
-      s.o += 0.006;
-      const a = (Math.sin(s.o) * 0.5 + 0.5) * 0.4;
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(0,229,255,${a})`;
-      ctx.fill();
-      s.y += s.speed;
-      if (s.y > H) { s.y = 0; s.x = Math.random() * W; }
-    }
-    requestAnimationFrame(draw);
-  }
-  resize(); init(); draw();
-  window.addEventListener('resize', () => { resize(); init(); });
-})();
 </script>
+
 </body>
 </html>
